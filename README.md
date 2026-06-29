@@ -1,77 +1,283 @@
-typs <>
-A sleek, modern, and theme-based minimalist typing speed test application heavily inspired by Monkeytype. Built with React 19, Vite, and Supabase, it provides an elegant typing experience with customizable themes, difficulties, detailed live analytics, and a global competitive leaderboard.
+<div align="center">
 
-🔗 Live Demo: typs.heyysvm.in
-🎨 Theme & Aesthetic System
-typs is built with custom visual styling at its core. It leverages CSS variables that dynamically update when themes are toggled via the ThemeContext.
+# ⌨️ typs
 
-Base Themes
-🌒 Dark Mode (Default): Deep carbon background (#181819) designed for low-light environment concentration.
-☀️ Light Mode: Crisp, clean light layout (#f5f5f7) with custom-tuned contrasting typography.
-Accent Palette
-Users can choose between multiple accent color presets which customize the caret, correct letters, active buttons, and visual highlights:
+### **Minimal • Fast • Competitive**
 
-Theme	Accent Hex	RGB Value	Preview
-Yellow (Default)	#e2b714	226, 183, 20	■
-Cyan	#00c2cb	0, 194, 203	■
-Orange	#ff7a00	255, 122, 0	■
-Green	#a3be8c	163, 190, 140	■
-⚡ Core Features
-🎯 Fluid Typing Engine: Implements smooth caret navigation, active line-masking, and precise word-wrapping/scrolling mechanics.
-🔊 Auditory Feedback: Mechanical click sounds toggleable directly from the interface.
-⌛ Flexible Modes:
-Words Mode: Target word counts (10, 30, 60, or custom up to 300).
-Time Mode: Timed count-down challenges (10, 30, 40, 60, or custom up to 300 seconds).
-📶 Tier Levels:
-basic: Common typing words.
-intermd: Adds basic punctuation and simple numbers.
-hard: Heavy punctuation, complex symbols, uppercase chars, and numbers.
-🔄 Local-to-Cloud Sync: Anonymous guest test results are stored in localStorage and automatically synchronized with Supabase database history when registering or logging in.
-🏆 Global Leaderboards: Live database rankings showing WPM stats of all players (only validates standard tests to prevent custom-duration leaderboard manipulation).
-📊 Real-time Stats & Charts: Detailed stats detailing WPM, Raw WPM, accuracy %, elapsed time, and character distributions (Correct/Wrong/Extra/Missed). Displays an interactive visual chart of WPM progress over time using Recharts.
-💤 Anti-Distraction Blur Overlay: Detects when focus is lost. Pressing any key automatically returns focus to the typing input without swallowing or typing that wake character.
-🛠️ Tech Stack
-Frontend: React 19 (Hooks, Contexts, Refs), Vite, Lucide Icons, Recharts.
-Database / Auth: Supabase PostgreSQL and GoTrue Auth.
-Styling: Vanilla CSS3 with root variables, responsive media queries, and smooth animations.
-🗄️ Database Architecture
-Below is the entity relationship diagram of the Supabase PostgreSQL database tables structure.
+*A modern typing speed platform inspired by Monkeytype, built for developers and keyboard enthusiasts.*
 
-Mermaid diagram
-Table Definitions & Security
-public.profiles: Contains user credentials and configuration settings.
-Managed automatically by a trigger function on sign-up (on_auth_user_created trigger executing public.handle_new_user()).
-Enabled with Row Level Security (RLS) allowing read access to all users, but write access restricted only to the authenticated owner.
-public.tests: Stores individual typing test stats.
-References profiles.id with a cascading delete constraint.
-RLS policies ensure everyone can view test results (e.g. for the leaderboard), but users can only write data belonging to their own UUID.
-🚀 Local Development Setup
-To run typs on your local environment:
+<br>
 
-Prerequisites
-Node.js (v18 or higher recommended)
-A Supabase account and database project
-1. Clone & Install Dependencies
-bash
+<a href="https://typs.heyysvm.in">
+<img src="https://img.shields.io/badge/⚡_Try_typs-Live-success?style=for-the-badge">
+</a>
 
-git clone https://github.com/heyysvm/typs.git
-cd typs
+<a href="https://github.com/heyysvm/TYPS">
+<img src="https://img.shields.io/badge/⭐_Star_Repository-black?style=for-the-badge">
+</a>
+
+<br><br>
+
+<img src="https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react">
+<img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite">
+<img src="https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase">
+<img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql">
+<img src="https://img.shields.io/badge/Recharts-FF6384?style=for-the-badge">
+<img src="https://img.shields.io/badge/Lucide-000000?style=for-the-badge">
+
+<br>
+
+---
+
+### ⚡ Type faster. Track progress. Compete globally.
+
+</div>
+
+---
+
+# ✨ Why TYPS?
+
+**TYPS** is a minimalist typing platform designed for speed, precision and focus.
+
+Built with a distraction-free interface, multiple typing modes, live analytics and global leaderboards, TYPS delivers a smooth typing experience while helping users improve over time.
+
+---
+
+# 🚀 Features
+
+## ⌨️ Minimal Typing Experience
+
+* Smooth caret movement
+* Intelligent scrolling
+* Line masking
+* Word wrapping
+* Zero distractions
+
+---
+
+## 🎨 Beautiful Theme System
+
+* 🌒 Dark Mode
+* ☀️ Light Mode
+
+Accent Themes
+
+* 💛 Yellow
+* 🩵 Cyan
+* 🧡 Orange
+* 💚 Green
+
+Themes instantly update using CSS Variables and Context API.
+
+---
+
+## 🎯 Flexible Typing Modes
+
+### Word Mode
+
+* 10 Words
+* 30 Words
+* 60 Words
+* Custom (Up to 300)
+
+### Time Mode
+
+* 10 Seconds
+* 30 Seconds
+* 40 Seconds
+* 60 Seconds
+* Custom (Up to 300)
+
+---
+
+## 📈 Live Analytics
+
+Real-time tracking of
+
+* WPM
+* Raw WPM
+* Accuracy
+* Elapsed Time
+* Correct Characters
+* Incorrect Characters
+* Missed Characters
+* Extra Characters
+
+Interactive WPM chart powered by Recharts.
+
+---
+
+## 🏆 Global Leaderboards
+
+Compete with players worldwide.
+
+* Live Rankings
+* Standard Test Validation
+* Cloud Synced Results
+
+---
+
+## ☁️ Smart Cloud Sync
+
+Guest results are stored locally.
+
+After login they automatically sync to Supabase.
+
+No progress is lost.
+
+---
+
+## 🔊 Mechanical Typing Sounds
+
+Toggle keyboard sounds on or off for a more immersive experience.
+
+---
+
+## 🎯 Focus Mode
+
+Automatically detects when the window loses focus.
+
+Press any key to instantly continue typing without accidental input.
+
+---
+
+# 📸 Preview
+
+<p align="center">
+
+<img src="./assets/home.png" width="800">
+
+</p>
+
+<br>
+
+<p align="center">
+
+<img src="./assets/result.png" width="380">
+<img src="./assets/leaderboard.png" width="380">
+
+</p>
+
+---
+
+# ⚙️ Tech Stack
+
+## Frontend
+
+* React 19
+* Vite
+* Vanilla CSS
+* Context API
+* Lucide Icons
+* Recharts
+
+---
+
+## Backend & Database
+
+* Supabase
+* PostgreSQL
+* GoTrue Authentication
+
+---
+
+## Styling
+
+* CSS Variables
+* Responsive Design
+* Smooth Animations
+
+---
+
+# 🗄️ Database
+
+## Tables
+
+### profiles
+
+Stores
+
+* User Information
+* Preferences
+* Theme Settings
+
+---
+
+### tests
+
+Stores
+
+* WPM
+* Accuracy
+* Test Type
+* Duration
+* Character Statistics
+
+---
+
+### Security
+
+* Row Level Security (RLS)
+* Cascading Deletes
+* User-owned Data Policies
+
+---
+
+# 🚀 Installation
+
+```bash
+git clone https://github.com/heyysvm/TYPS.git
+
+cd TYPS
+
 npm install
-2. Configure Environment Variables
-Create a .env file in the root directory:
-
-env
-
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-3. Initialize Database Schema
-Copy and execute the contents of supabase-schema.sql into the SQL Editor of your Supabase dashboard to set up the tables, triggers, and RLS policies.
-
-4. Run the Dev Server
-bash
 
 npm run dev
-Open your browser and navigate to http://localhost:5173.
+```
 
-📄 License
-Designed & developed with ❤️ by heyysvm. Feel free to star, fork, and contribute!
+---
+
+# 🔑 Environment Variables
+
+```env
+VITE_SUPABASE_URL=your_project_url
+
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+---
+
+# 🛣️ Roadmap
+
+* Multiplayer Typing Rooms
+* Friends System
+* Achievement Badges
+* Typing Challenges
+* Daily Streaks
+* Advanced Statistics
+* Custom Word Packs
+* AI Typing Coach
+
+---
+
+# 👨‍💻 Developer
+
+### Shivam Kumar
+
+🌐 https://heyysvm.in
+
+GitHub
+
+https://github.com/heyysvm
+
+---
+
+<div align="center">
+
+## ⭐ Love TYPS?
+
+### Give it a Star if you enjoyed using it.
+
+**Made with ❤️ by heyysvm**
+
+</div>
