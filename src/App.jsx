@@ -38,10 +38,12 @@ export default function App() {
   const [previousWpm, setPreviousWpm] = useState(0)
 
   const userMenuRef = useRef(null)
+  const savingRef = useRef(false)
 
   const triggerRestart = useCallback(() => {
     setRestartKey(k => k + 1)
     setResultSaved(false)
+    savingRef.current = false
   }, [])
 
   const handleRestart = useCallback(() => {
@@ -105,8 +107,9 @@ export default function App() {
 
   
   useEffect(() => {
-    if (status === 'finished' && !resultSaved) {
-      if (wpm > 0) {
+    if (status === 'finished' && !resultSaved && !savingRef.current) {
+      if (wpm > 0 && (charsCorrect || 0) >= 5) {
+        savingRef.current = true
         const testData = {
           wpm,
           rawWpm,
@@ -176,7 +179,7 @@ export default function App() {
       {}
       <header className="header">
         <div className="header-inner">
-          <button className="logo" onClick={() => { setPage('home'); handleRestart() }}>
+          <button className="logo" onClick={() => { handleRestart(); setPage('home'); }}>
             <span className="logo-text">typs</span>
             <span className="logo-accent">&lt;&gt;</span>
           </button>
@@ -184,28 +187,28 @@ export default function App() {
           <nav className="header-nav">
             <button
               className={`hn-btn ${page === 'learn' ? 'active' : ''}`}
-              onClick={() => setPage(page === 'learn' ? 'home' : 'learn')}
+              onClick={() => { handleRestart(); setPage(page === 'learn' ? 'home' : 'learn'); }}
             >
               <BookOpen size={14} />
               <span>learn</span>
             </button>
             <button
               className={`hn-btn ${page === 'leaderboard' ? 'active' : ''}`}
-              onClick={() => setPage(page === 'leaderboard' ? 'home' : 'leaderboard')}
+              onClick={() => { handleRestart(); setPage(page === 'leaderboard' ? 'home' : 'leaderboard'); }}
             >
               <Trophy size={14} />
               <span>leaderboard</span>
             </button>
              <button
               className={`hn-btn ${page === 'statistics' ? 'active' : ''}`}
-              onClick={() => setPage(page === 'statistics' ? 'home' : 'statistics')}
+              onClick={() => { handleRestart(); setPage(page === 'statistics' ? 'home' : 'statistics'); }}
             >
               <BarChart2 size={14} />
               <span>statistics</span>
             </button>
             <button
               className={`hn-btn ${page === 'history' ? 'active' : ''}`}
-              onClick={() => setPage(page === 'history' ? 'home' : 'history')}
+              onClick={() => { handleRestart(); setPage(page === 'history' ? 'home' : 'history'); }}
             >
               <History size={14} />
               <span>history</span>
@@ -243,17 +246,17 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                    <button className="ud-item" onClick={() => { setPage('profile'); setShowUserMenu(false) }}>
+                    <button className="ud-item" onClick={() => { handleRestart(); setPage('profile'); setShowUserMenu(false); }}>
                       <User size={13} /> profile
                     </button>
-                    <button className="ud-item" onClick={() => { setPage('history'); setShowUserMenu(false) }}>
+                    <button className="ud-item" onClick={() => { handleRestart(); setPage('history'); setShowUserMenu(false); }}>
                       <History size={13} /> history
                     </button>
-                    <button className="ud-item" onClick={() => { setPage('statistics'); setShowUserMenu(false) }}>
+                    <button className="ud-item" onClick={() => { handleRestart(); setPage('statistics'); setShowUserMenu(false); }}>
                       <BarChart2 size={13} /> statistics
                     </button>
                     <div className="ud-sep" />
-                    <button className="ud-item danger" onClick={() => { logout(); setShowUserMenu(false) }}>
+                    <button className="ud-item danger" onClick={() => { handleRestart(); logout(); setShowUserMenu(false); }}>
                       <LogOut size={13} /> sign out
                     </button>
                   </div>
