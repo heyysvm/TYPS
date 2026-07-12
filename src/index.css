@@ -1887,3 +1887,145 @@ kbd {
   animation: fadeUp 0.3s ease;
 }
 
+/* ==========================================================================
+   GLASSMORPHISM - Premium Frosted macOS Theme
+   ========================================================================== */
+
+/* Background macOS Abstract Wallpaper Gradient */
+body.glass-ui-active {
+  background: radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.12) 0%, rgba(0, 0, 0, 0) 50%),
+              radial-gradient(circle at 90% 80%, rgba(0, 194, 203, 0.12) 0%, rgba(0, 0, 0, 0) 50%),
+              radial-gradient(circle at 50% 50%, rgba(226, 183, 20, 0.05) 0%, rgba(0, 0, 0, 0) 60%),
+              #0d0e11 !important;
+  background-attachment: fixed !important;
+  background-size: cover !important;
+}
+
+html.light-mode body.glass-ui-active {
+  background: radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.06) 0%, rgba(0, 0, 0, 0) 50%),
+              radial-gradient(circle at 90% 80%, rgba(0, 194, 203, 0.06) 0%, rgba(0, 0, 0, 0) 50%),
+              radial-gradient(circle at 50% 50%, rgba(226, 183, 20, 0.03) 0%, rgba(0, 0, 0, 0) 60%),
+              #f5f5f7 !important;
+  background-attachment: fixed !important;
+  background-size: cover !important;
+}
+
+/* Translucent Frosted Glass Overrides */
+.glass-ui-active .res-block,
+.glass-ui-active .lb-table,
+.glass-ui-active .practice-left-panel,
+.glass-ui-active .practice-right-panel,
+.glass-ui-active .typing-wrapper,
+.glass-ui-active .stat-card,
+.glass-ui-active .modal-box,
+.glass-ui-active .user-dropdown,
+.glass-ui-active .custom-tooltip {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Light Mode Glassmorphism Overrides */
+.light-mode.glass-ui-active .res-block,
+.light-mode.glass-ui-active .lb-table,
+.light-mode.glass-ui-active .practice-left-panel,
+.light-mode.glass-ui-active .practice-right-panel,
+.light-mode.glass-ui-active .typing-wrapper,
+.light-mode.glass-ui-active .stat-card,
+.light-mode.glass-ui-active .modal-box,
+.light-mode.glass-ui-active .user-dropdown,
+.light-mode.glass-ui-active .custom-tooltip {
+  background: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(209, 213, 219, 0.3) !important;
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.06) !important;
+}
+
+/* Header & Sticky backgrounds in Glass UI */
+.glass-ui-active .header {
+  background: rgba(13, 14, 17, 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.light-mode.glass-ui-active .header {
+  background: rgba(245, 245, 247, 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Sleek macOS UI Button styling under Glass UI */
+.glass-ui-active .nb-pill,
+.glass-ui-active .hn-btn,
+.glass-ui-active .completion-btn,
+.glass-ui-active .qc-toggle-btn,
+.glass-ui-active .practice-weak-btn,
+.glass-ui-active .practice-reset-btn,
+.glass-ui-active .res-restart {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.glass-ui-active .nb-pill:hover,
+.glass-ui-active .hn-btn:hover,
+.glass-ui-active .completion-btn:hover,
+.glass-ui-active .qc-toggle-btn:hover,
+.glass-ui-active .practice-weak-btn:hover,
+.glass-ui-active .practice-reset-btn:hover,
+.glass-ui-active .res-restart:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.glass-ui-active .nb-pill.active,
+.glass-ui-active .hn-btn.active,
+.glass-ui-active .completion-btn.primary,
+.glass-ui-active .qc-toggle-btn.active,
+.glass-ui-active .practice-weak-btn.active {
+  background: var(--accent) !important;
+  color: #0d0e11 !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.3) !important;
+}
+
+.light-mode.glass-ui-active .nb-pill.active,
+.light-mode.glass-ui-active .hn-btn.active,
+.light-mode.glass-ui-active .completion-btn.primary,
+.light-mode.glass-ui-active .qc-toggle-btn.active,
+.light-mode.glass-ui-active .practice-weak-btn.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.2) !important;
+}
+
+.glass-ui-active .practice-typing-wrap {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35) !important;
+}
+
+.light-mode.glass-ui-active .practice-typing-wrap {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 1px solid rgba(209, 213, 219, 0.4) !important;
+  box-shadow: 0 16px 48px rgba(31, 38, 135, 0.08) !important;
+}
+
+/* Typing area active indicator */
+.glass-ui-active .practice-typing-wrap:hover,
+.glass-ui-active .typing-wrapper:hover {
+  border-color: rgba(var(--accent-rgb), 0.4) !important;
+}
+

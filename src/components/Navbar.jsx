@@ -27,7 +27,7 @@ export default function Navbar({
   setTheme,
   themes,
 }) {
-  const { baseTheme, toggleBaseTheme } = useTheme()
+  const { baseTheme, toggleBaseTheme, isGlass, toggleGlass } = useTheme()
   const options = mode === 'words' ? WORD_OPTIONS : TIME_OPTIONS
 
   const activeValue =
@@ -216,6 +216,16 @@ export default function Navbar({
                 title={name}
               />
             ))}
+
+            <button
+              className={`nb-pill sm ${isGlass ? 'active' : ''}`}
+              onClick={toggleGlass}
+              onMouseDown={e => e.preventDefault()}
+              title="Toggle macOS Glass UI"
+              style={{ fontSize: '0.6875rem', padding: '2px 8px', marginLeft: '6px' }}
+            >
+              glass
+            </button>
           </div>
         )}
 

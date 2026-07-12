@@ -66,7 +66,7 @@ function generateMixedText(keys, count = 120) {
 
 export default function Learn({ sound: globalSound }) {
   // --- Theme Access Hooks ---
-  const { theme: activeTheme, setTheme: setActiveTheme, themes: allThemes, baseTheme, toggleBaseTheme } = useTheme();
+  const { theme: activeTheme, setTheme: setActiveTheme, themes: allThemes, baseTheme, toggleBaseTheme, isGlass, toggleGlass } = useTheme();
 
   // --- Page Mode State ---
   const [practiceTab, setPracticeTab] = useState("lessons"); // lessons | manual
@@ -981,6 +981,14 @@ export default function Learn({ sound: globalSound }) {
                 <span>Mode</span>
                 <button className="qc-toggle-btn" onClick={toggleBaseTheme}>
                   <span>{baseTheme === 'dark' ? 'DARK' : 'LIGHT'}</span>
+                </button>
+              </div>
+
+              {/* Glass UI Toggle inside Learn */}
+              <div className="qc-row">
+                <span>Glass UI</span>
+                <button className={`qc-toggle-btn ${isGlass ? 'active' : ''}`} onClick={toggleGlass}>
+                  <span>{isGlass ? "ON" : "OFF"}</span>
                 </button>
               </div>
 

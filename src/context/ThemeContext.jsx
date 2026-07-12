@@ -49,6 +49,9 @@ export function ThemeProvider({ children }) {
     const saved = localStorage.getItem('typs_base_theme')
     return saved === 'light' ? 'light' : 'dark'
   })
+  const [isGlass, setIsGlassState] = useState(() => {
+    return localStorage.getItem('typs_is_glass') === 'true'
+  })
 
   useEffect(() => {
     applyTheme(theme)
@@ -61,6 +64,16 @@ export function ThemeProvider({ children }) {
       document.documentElement.classList.remove('light-mode')
     }
   }, [baseTheme])
+
+  useEffect(() => {
+    if (isGlass) {
+      document.documentElement.classList.add('glass-ui-active')
+      document.body.classList.add('glass-ui-active')
+    } else {
+      document.documentElement.classList.remove('glass-ui-active')
+      document.body.classList.remove('glass-ui-active')
+    }
+  }, [isGlass])
 
   useEffect(() => {
     if (!loading && user && user.theme && THEMES[user.theme]) {
@@ -89,8 +102,16 @@ export function ThemeProvider({ children }) {
     })
   }
 
+  const toggleGlass = () => {
+    setIsGlassState((prev) => {
+      const next = !prev
+      localStorage.setItem('typs_is_glass', String(next))
+      return next
+    })
+  }
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, themes: THEMES, baseTheme, toggleBaseTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, themes: THEMES, baseTheme, toggleBaseTheme, isGlass, toggleGlass }}>
       {children}
     </ThemeContext.Provider>
   )
