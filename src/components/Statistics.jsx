@@ -21,8 +21,9 @@ function CustomTooltip({ active, payload, label, valueLabel }) {
 }
 
 export default function Statistics() {
-  const { user, getUserHistory } = useAuth()
+  const { user, getUserHistory, getUserStats } = useAuth()
   const [history, setHistory] = useState([])
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -30,6 +31,20 @@ export default function Statistics() {
       try {
         const local = JSON.parse(localStorage.getItem('typs_local_history') || '[]')
         setHistory(local)
+        
+        const localTests = local.length
+        const localAvgWpm = localTests > 0 ? Math.round(local.reduce((s, h) => s + h.wpm, 0) / localTests) : 0
+        const localBestWpm = localTests > 0 ? Math.max(...local.map(h => h.wpm)) : 0
+        const localAvgAccuracy = localTests > 0 ? Math.round(local.reduce((s, h) => s + h.accuracy, 0) / localTests) : 0
+        const localTotalWords = local.reduce((s, h) => s + (h.word_count || 0), 0)
+        
+        setStats({
+          tests: localTests,
+          avgWpm: localAvgWpm,
+          bestWpm: localBestWpm,
+          avgAcc: localAvgAccuracy,
+          totalWords: localTotalWords
+        })
       } catch (e) {
         console.error('Failed to load local history:', e)
       }
@@ -40,15 +55,20 @@ export default function Statistics() {
     async function load() {
       setLoading(true)
       try {
-        const h = await getUserHistory()
+        const [h, s] = await Promise.all([
+          getUserHistory(),
+          getUserStats()
+        ])
         setHistory(h || [])
+        setStats(s)
       } catch {
         setHistory([])
+        setStats(null)
       }
       setLoading(false)
     }
     load()
-  }, [user, getUserHistory])
+  }, [user, getUserHistory, getUserStats])
 
   if (loading) {
     return (
@@ -70,12 +90,12 @@ export default function Statistics() {
     )
   }
 
-  
-  const totalTests = history.length
-  const avgWpm = Math.round(history.reduce((s, h) => s + h.wpm, 0) / totalTests)
-  const bestWpm = Math.max(...history.map(h => h.wpm))
-  const avgAccuracy = Math.round(history.reduce((s, h) => s + h.accuracy, 0) / totalTests)
-  const totalWords = history.reduce((s, h) => s + (h.word_count || 0), 0)
+  // Calculate stats based on overall profiles data to avoid 100-history limit cap
+  const totalTests = stats ? stats.tests : history.length
+  const avgWpm = stats ? stats.avgWpm : Math.round(history.reduce((s, h) => s + h.wpm, 0) / history.length)
+  const bestWpm = stats ? stats.bestWpm : Math.max(...history.map(h => h.wpm))
+  const avgAccuracy = stats ? stats.avgAcc : Math.round(history.reduce((s, h) => s + h.accuracy, 0) / history.length)
+  const totalWords = stats ? stats.totalWords : history.reduce((s, h) => s + (h.word_count || 0), 0)
 
   
   const chronological = [...history].reverse()
