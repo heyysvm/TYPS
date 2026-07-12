@@ -230,26 +230,27 @@ export function AuthProvider({ children }) {
     
     const userMap = {}
     for (const row of data) {
-      
-      const isCustom = row.mode === 'words'
-        ? ![10, 30, 60].includes(row.word_count)
-        : ![10, 30, 40, 60].includes(row.time_limit)
-
-      if (isCustom) continue 
-
       const uid = row.user_id
       if (!userMap[uid]) {
         userMap[uid] = {
           username: row.profiles?.username || 'Unknown',
           wpms: [],
           accs: [],
+          totalTestsCount: 0
         }
       }
+      userMap[uid].totalTestsCount++
+
+      const isCustom = row.mode === 'words'
+        ? ![10, 30, 60].includes(row.word_count)
+        : ![10, 30, 40, 60].includes(row.time_limit)
+
+      if (isCustom) continue 
+
       userMap[uid].wpms.push(row.wpm)
       userMap[uid].accs.push(row.accuracy)
     }
 
-    
     const filteredUsers = Object.values(userMap).filter(u => u.wpms.length > 0)
 
     const leaderboard = filteredUsers.map((u) => ({
@@ -257,7 +258,7 @@ export function AuthProvider({ children }) {
       bestWpm: Math.max(...u.wpms),
       avgWpm: Math.round(u.wpms.reduce((a, b) => a + b, 0) / u.wpms.length),
       avgAcc: Math.round(u.accs.reduce((a, b) => a + b, 0) / u.accs.length),
-      tests: u.wpms.length,
+      tests: u.totalTestsCount,
     }))
 
     leaderboard.sort((a, b) => b.bestWpm - a.bestWpm)
