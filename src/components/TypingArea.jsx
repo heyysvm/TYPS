@@ -152,14 +152,13 @@ export default function TypingArea({
       if (inputRef.current) {
         inputRef.current.focus()
         setIsFocused(true)
-        handleKeyDown(e)
         e.preventDefault()
       }
     }
 
     window.addEventListener('keydown', handleGlobalKeyDown)
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [inputRef, handleKeyDown])
+  }, [inputRef])
 
   
   useEffect(() => {
@@ -188,7 +187,7 @@ export default function TypingArea({
       )}
 
       <div
-        className="words-viewport"
+        className={`words-viewport ${status !== 'finished' && !isFocused ? 'blurred' : ''}`}
         ref={viewportRef}
         style={rowH > 0 ? { height: rowH * 3 } : undefined}
       >
