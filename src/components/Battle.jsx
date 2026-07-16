@@ -57,6 +57,11 @@ export default function Battle({ sound: globalSound }) {
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const audioCtxRef = useRef(null)
+  
+  const startTimeRef = useRef(null)
+  const correctCharsRef = useRef(0)
+  const totalCharsRef = useRef(0)
+  const totalKeysRef = useRef(0)
 
   // Web Audio keyclick
   const playClick = useCallback(() => {
@@ -89,6 +94,11 @@ export default function Battle({ sound: globalSound }) {
     setCorrectChars(0)
     setTypedCharsCount(0)
     setMistakesCount(0)
+
+    startTimeRef.current = null
+    correctCharsRef.current = 0
+    totalCharsRef.current = 0
+    totalKeysRef.current = 0
     
     setOpponentStats(prev => ({
       ...prev,
@@ -270,49 +280,50 @@ export default function Battle({ sound: globalSound }) {
   useEffect(() => {
     if (status !== 'running') return
 
-    setStartTime(Date.now())
-    
     timerRef.current = setInterval(() => {
-      setStartTime(start => {
-        if (!start) return start
-        const elapsedSec = (Date.now() - start) / 1000
-        setElapsed(elapsedSec)
+      if (!startTimeRef.current) return
+      const elapsedSec = (Date.now() - startTimeRef.current) / 1000
+      setElapsed(elapsedSec)
 
-        // Calculate live WPM
-        const minutes = Math.max(elapsedSec / 60, 0.001)
-        const currentWpm = Math.round((correctChars / 5) / minutes)
+      const minutes = elapsedSec / 60
+
+      // Calculate live WPM (prevent spikes at the very beginning)
+      if (minutes > 0.01) {
+        const currentWpm = Math.round((correctCharsRef.current / 5) / minutes)
         setWpm(currentWpm)
+      }
 
-        // Time mode check
-        if (mode === 'time') {
-          const remaining = Math.max(0, timeLimit - elapsedSec)
-          setTimeLeft(Math.ceil(remaining))
+      // Time mode check
+      if (mode === 'time') {
+        const remaining = Math.max(0, timeLimit - elapsedSec)
+        setTimeLeft(Math.ceil(remaining))
 
-          if (remaining <= 0) {
-            clearInterval(timerRef.current)
-            setStatus('finished')
-            // Broadcast final stats
-            if (channelRef.current) {
-              channelRef.current.send({
-                type: 'broadcast',
-                event: 'typing_progress',
-                payload: {
-                  username: user?.username || 'You',
-                  wpm: currentWpm,
-                  accuracy,
-                  currentWordIdx,
-                  isFinished: true
-                }
-              })
-            }
+        if (remaining <= 0) {
+          clearInterval(timerRef.current)
+          setStatus('finished')
+          // Broadcast final stats
+          const finalWpm = Math.round((correctCharsRef.current / 5) / Math.max(elapsedSec / 60, 0.001))
+          setWpm(finalWpm)
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'typing_progress',
+              payload: {
+                username: user?.username || 'You',
+                wpm: finalWpm,
+                accuracy,
+                currentWordIdx,
+                currentInputVal: '',
+                isFinished: true
+              }
+            })
           }
         }
-        return start
-      })
+      }
     }, 100)
 
     return () => clearInterval(timerRef.current)
-  }, [status, mode, timeLimit, correctChars, accuracy, currentWordIdx, user])
+  }, [status, mode, timeLimit, accuracy, currentWordIdx, user])
 
   // AI Bot Opponent logic
   useEffect(() => {
@@ -354,8 +365,9 @@ export default function Battle({ sound: globalSound }) {
   // Helper to send character-by-character updates to opponent
   const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false) => {
     if (channelRef.current) {
-      const elapsedSec = elapsed || 0.001
-      const currentWpm = Math.round((correctChars / 5) / (elapsedSec / 60))
+      const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+      const minutes = elapsedSec / 60
+      const currentWpm = minutes > 0.01 ? Math.round((correctCharsRef.current / 5) / minutes) : 0
       
       channelRef.current.send({
         type: 'broadcast',
@@ -379,6 +391,7 @@ export default function Battle({ sound: globalSound }) {
 
     if (status === 'idle') {
       setStatus('running')
+      startTimeRef.current = Date.now()
     }
 
     const { key } = e
@@ -409,21 +422,23 @@ export default function Battle({ sound: globalSound }) {
       setCurrentInput('')
 
       // Calculate accuracy & correct chars
-      let newCorrect = correctChars
       if (isCorrect) {
-        newCorrect += currentWord.length + 1 // including space
-        setCorrectChars(newCorrect)
+        correctCharsRef.current += currentWord.length + 1 // including space
+        setCorrectChars(correctCharsRef.current)
       } else {
         setMistakesCount(prev => prev + 1)
       }
 
-      const totalTyped = typedCharsCount + currentInput.length + 1
-      setTypedCharsCount(totalTyped)
-      const acc = Math.max(0, Math.round(((totalTyped - (mistakesCount + (isCorrect ? 0 : 1))) / totalTyped) * 100))
+      totalKeysRef.current += currentInput.length + 1
+      totalCharsRef.current += currentInput.length + 1
+      setTypedCharsCount(totalCharsRef.current)
+
+      const acc = Math.max(0, Math.round(((totalCharsRef.current - (mistakesCount + (isCorrect ? 0 : 1))) / totalCharsRef.current) * 100))
       setAccuracy(acc)
 
       // Broadcast progress on word submission
-      const currentWpm = Math.round((newCorrect / 5) / (elapsed > 0 ? elapsed / 60 : 0.001))
+      const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+      const currentWpm = elapsedSec > 0.6 ? Math.round((correctCharsRef.current / 5) / (elapsedSec / 60)) : 0
       const isFinished = (mode === 'words' && nextIdx >= gameWords.length)
 
       if (channelRef.current) {
@@ -454,6 +469,7 @@ export default function Battle({ sound: globalSound }) {
       if (currentInput.length >= currentWord.length + 10) return
       const newVal = currentInput + key
       setCurrentInput(newVal)
+      totalKeysRef.current += 1
       sendTypingProgress(currentWordIdx, newVal)
     }
   };
