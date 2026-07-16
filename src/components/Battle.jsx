@@ -954,8 +954,13 @@ export default function Battle({ sound: globalSound }) {
                 </div>
                 <span className="arena-user-name">{user?.username || 'You'}</span>
               </div>
-              <div className="arena-wpm">
-                {wpm} <span>WPM</span>
+              <div className="arena-wpm" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                {mode === 'time' && (
+                  <span style={{ fontSize: '1rem', color: timeLeft <= 5 ? 'var(--wrong)' : 'var(--text-muted)', fontWeight: 700 }}>
+                    {timeLeft}s left
+                  </span>
+                )}
+                <span>{wpm} <span>WPM</span></span>
               </div>
             </div>
 
@@ -964,32 +969,111 @@ export default function Battle({ sound: globalSound }) {
               {status !== 'finished' && !isFocused && (
                 <div className="focus-error-overlay">
                   <div className="focus-error-text">
-                    <span>Click to focus</span>
+                    <span>Click or press any key to focus</span>
                   </div>
                 </div>
               )}
 
-              {/* Target Text and typing inputs */}
+              {/* Target Text (Overwrite inline highlighting) */}
               <div style={{ 
-                fontSize: '1.5rem', 
-                lineHeight: '2.5rem', 
+                fontSize: '1.625rem', 
+                lineHeight: '2.625rem', 
                 display: 'flex', 
                 flexWrap: 'wrap', 
-                gap: '10px', 
+                gap: '12px', 
                 pointerEvents: 'none',
                 opacity: isFocused ? 1 : 0.25,
                 transition: 'opacity 0.25s ease'
               }}>
                 {gameWords.map((word, idx) => {
-                  let colorClass = 'var(--text-dim)'
-                  if (idx < currentWordIdx) {
-                    colorClass = typedWords[idx] === word ? 'var(--accent)' : 'var(--wrong)'
-                  } else if (idx === currentWordIdx) {
-                    colorClass = 'var(--text-hi)'
+                  const isCurrent = idx === currentWordIdx
+                  const isCompleted = idx < currentWordIdx
+                  
+                  if (isCompleted) {
+                    const isCorrect = typedWords[idx] === word
+                    return (
+                      <span key={idx} style={{ color: isCorrect ? 'var(--accent)' : 'var(--wrong)' }}>
+                        {word}
+                      </span>
+                    )
                   }
                   
+                  if (isCurrent) {
+                    return (
+                      <span key={idx} style={{ borderBottom: '2px solid var(--accent)', paddingBottom: '2px', display: 'inline-block' }}>
+                        {word.split('').map((char, charIdx) => {
+                          let charColor = 'var(--text-dim)'
+                          const isCaret = charIdx === currentInput.length
+                          
+                          if (charIdx < currentInput.length) {
+                            charColor = currentInput[charIdx] === char ? 'var(--accent)' : 'var(--wrong)'
+                          }
+                          
+                          return (
+                            <span key={charIdx} style={{ color: charColor, position: 'relative' }}>
+                              {isCaret && (
+                                <span className="battle-caret" style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  bottom: '2px',
+                                  width: '2px',
+                                  height: '1.1em',
+                                  background: 'var(--accent)',
+                                  animation: 'blink 1s infinite'
+                                }} />
+                              )}
+                              {char}
+                            </span>
+                          )
+                        })}
+                        
+                        {/* Caret at end of current word */}
+                        {currentInput.length === word.length && (
+                          <span style={{ position: 'relative' }}>
+                            <span className="battle-caret" style={{
+                              position: 'absolute',
+                              left: 0,
+                              bottom: '2px',
+                              width: '2px',
+                              height: '1.1em',
+                              background: 'var(--accent)',
+                              animation: 'blink 1s infinite'
+                            }} />
+                            &nbsp;
+                          </span>
+                        )}
+
+                        {/* Render extra typed characters if any */}
+                        {currentInput.length > word.length && (
+                          <span>
+                            {currentInput.slice(word.length).split('').map((char, charIdx) => {
+                              return (
+                                <span key={`extra-${charIdx}`} style={{ color: 'var(--wrong)', position: 'relative' }}>
+                                  {char}
+                                </span>
+                              )
+                            })}
+                            <span style={{ position: 'relative' }}>
+                              <span className="battle-caret" style={{
+                                position: 'absolute',
+                                left: 0,
+                                bottom: '2px',
+                                width: '2px',
+                                height: '1.1em',
+                                background: 'var(--accent)',
+                                animation: 'blink 1s infinite'
+                              }} />
+                              &nbsp;
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    )
+                  }
+                  
+                  // Untyped words
                   return (
-                    <span key={idx} style={{ color: colorClass, borderBottom: idx === currentWordIdx ? '2px solid var(--accent)' : 'none' }}>
+                    <span key={idx} style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
                       {word}
                     </span>
                   )
@@ -1012,20 +1096,6 @@ export default function Battle({ sound: globalSound }) {
                 autoCapitalize="off"
                 spellCheck="false"
               />
-
-              {/* Display live current typed input */}
-              {status !== 'finished' && (
-                <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.5rem', color: 'var(--accent)' }}>
-                    {currentInput || <span style={{ opacity: 0.3, fontStyle: 'italic', fontSize: '1.125rem' }}>type here...</span>}
-                  </span>
-                  {mode === 'time' && (
-                    <span style={{ color: timeLeft <= 5 ? 'var(--wrong)' : 'var(--text-muted)', fontWeight: 700 }}>
-                      {timeLeft}s remaining
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1044,7 +1114,7 @@ export default function Battle({ sound: globalSound }) {
             </div>
 
             <div className="arena-typing-box opponent-box">
-              <div style={{ fontSize: '1.5rem', lineHeight: '2.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px', opacity: 0.6 }}>
+              <div style={{ fontSize: '1.625rem', lineHeight: '2.625rem', display: 'flex', flexWrap: 'wrap', gap: '12px', opacity: 0.6 }}>
                 {gameWords.map((word, idx) => {
                   const isCurrent = idx === Math.floor(opponentStats.currentWordIdx)
                   const isTyped = idx < Math.floor(opponentStats.currentWordIdx)
