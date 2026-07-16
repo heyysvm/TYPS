@@ -30,6 +30,7 @@ export default function Battle({ sound: globalSound }) {
   const [startTime, setStartTime] = useState(null)
   const [elapsed, setElapsed] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
+  const [isFocused, setIsFocused] = useState(false)
 
   // Live Metrics
   const [wpm, setWpm] = useState(0)
@@ -48,6 +49,11 @@ export default function Battle({ sound: globalSound }) {
     isFinished: false
   })
 
+  // Lobby Browser & Requests States
+  const [openRooms, setOpenRooms] = useState([])
+  const [joinRequests, setJoinRequests] = useState([])
+  const [requestStatus, setRequestStatus] = useState({}) // { [roomId]: 'idle' | 'pending' | 'declined' }
+
   // Countdown State
   const [countdown, setCountdown] = useState(3)
   const [copied, setCopied] = useState(false)
@@ -57,11 +63,19 @@ export default function Battle({ sound: globalSound }) {
   const inputRef = useRef(null)
   const timerRef = useRef(null)
   const audioCtxRef = useRef(null)
-  
+  const myUserId = useRef(null)
+
   const startTimeRef = useRef(null)
   const correctCharsRef = useRef(0)
   const totalCharsRef = useRef(0)
   const totalKeysRef = useRef(0)
+
+  // Initialize unique user ID for requests mapping
+  useEffect(() => {
+    if (!myUserId.current) {
+      myUserId.current = 'u_' + Math.random().toString(36).substring(2, 8)
+    }
+  }, [])
 
   // Web Audio keyclick
   const playClick = useCallback(() => {
@@ -113,12 +127,60 @@ export default function Battle({ sound: globalSound }) {
     if (timerRef.current) clearInterval(timerRef.current)
   }, [mode, timeLimit])
 
-  // Format countdown and duration helpers
+  // Copy code helper
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  // Global lobby browser synchronization
+  useEffect(() => {
+    if (lobbyState !== 'lobby' && lobbyState !== 'waiting') return
+
+    const lobbyChan = supabase.channel('battle_lobby')
+
+    lobbyChan.on('presence', { event: 'sync' }, () => {
+      const presenceState = lobbyChan.presenceState()
+      const rooms = Object.values(presenceState)
+        .flat()
+        .filter(r => r.roomId)
+      setOpenRooms(rooms)
+    })
+
+    lobbyChan.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        if (lobbyState === 'waiting' && isHost) {
+          // Host tracks the room in global lobby
+          await lobbyChan.track({
+            roomId,
+            hostName: user?.username || 'Host',
+            tier,
+            mode,
+            limit: mode === 'words' ? wordCount : timeLimit,
+            playersCount: players.length
+          })
+        }
+      }
+    })
+
+    return () => {
+      lobbyChan.unsubscribe()
+    }
+  }, [lobbyState, isHost, roomId, tier, mode, wordCount, timeLimit, players.length, user])
+
+  // Focus redirection when pressing keys outside the typing area
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (lobbyState === 'arena' && !isFocused && status !== 'finished') {
+        // Prevent key defaults when focusing (like space scrolling)
+        if (e.key === ' ' || e.key === 'Backspace') e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [lobbyState, isFocused, status])
 
   // Supabase Realtime Room Handling
   const setupRealtimeChannel = useCallback((targetRoomId, hostFlag) => {
@@ -173,6 +235,16 @@ export default function Battle({ sound: globalSound }) {
         setLobbyState('countdown')
       })
 
+    // Host listens for join requests
+    if (hostFlag) {
+      channel.on('broadcast', { event: 'join_request' }, ({ payload }) => {
+        setJoinRequests(prev => {
+          if (prev.some(r => r.requesterId === payload.requesterId)) return prev
+          return [...prev, payload]
+        })
+      })
+    }
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         const myName = user?.username || `Guest_${Math.floor(Math.random() * 1000)}`
@@ -215,26 +287,96 @@ export default function Battle({ sound: globalSound }) {
     setRoomId('')
     setIsHost(false)
     setIsBotMode(false)
+    setJoinRequests([])
   }
 
-  // Create Room
+  // Create Room (4-digit code)
   const handleCreateRoom = () => {
-    const code = `B-${Math.floor(1000 + Math.random() * 9000)}`
+    const code = Math.floor(1000 + Math.random() * 9000).toString()
     setRoomId(code)
     setIsHost(true)
     setLobbyState('waiting')
     setupRealtimeChannel(code, true)
   }
 
-  // Join Room
+  // Join Room via Form
   const handleJoinRoom = (e) => {
     e.preventDefault()
     if (!roomCodeInput.trim()) return
-    const code = roomCodeInput.trim().toUpperCase()
+    const code = roomCodeInput.trim()
     setRoomId(code)
     setIsHost(false)
     setLobbyState('waiting')
     setupRealtimeChannel(code, false)
+  }
+
+  // Accept Join Request (Host)
+  const handleAcceptRequest = (req) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'join_accepted',
+        payload: {
+          requesterId: req.requesterId
+        }
+      })
+    }
+    setJoinRequests(prev => prev.filter(r => r.requesterId !== req.requesterId))
+  }
+
+  // Decline Join Request (Host)
+  const handleDeclineRequest = (req) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'join_declined',
+        payload: {
+          requesterId: req.requesterId
+        }
+      })
+    }
+    setJoinRequests(prev => prev.filter(r => r.requesterId !== req.requesterId))
+  }
+
+  // Request to Join Room (Lobby list click)
+  const handleRequestToJoin = (targetRoom) => {
+    const targetRoomId = targetRoom.roomId
+    setRequestStatus(prev => ({ ...prev, [targetRoomId]: 'pending' }))
+
+    const tempChan = supabase.channel(`room_${targetRoomId}`)
+    
+    tempChan
+      .on('broadcast', { event: 'join_accepted' }, ({ payload }) => {
+        if (payload.requesterId === myUserId.current) {
+          tempChan.unsubscribe()
+          setRoomId(targetRoomId)
+          setIsHost(false)
+          setLobbyState('waiting')
+          setupRealtimeChannel(targetRoomId, false)
+        }
+      })
+      .on('broadcast', { event: 'join_declined' }, ({ payload }) => {
+        if (payload.requesterId === myUserId.current) {
+          setRequestStatus(prev => ({ ...prev, [targetRoomId]: 'declined' }))
+          tempChan.unsubscribe()
+          setTimeout(() => {
+            setRequestStatus(prev => ({ ...prev, [targetRoomId]: 'idle' }))
+          }, 3000)
+        }
+      })
+
+    tempChan.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        tempChan.send({
+          type: 'broadcast',
+          event: 'join_request',
+          payload: {
+            requesterName: user?.username || `Guest_${Math.floor(Math.random() * 1000)}`,
+            requesterId: myUserId.current
+          }
+        })
+      }
+    })
   }
 
   // Start Battle Countdown
@@ -325,11 +467,10 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(timerRef.current)
   }, [status, mode, timeLimit, accuracy, currentWordIdx, user])
 
-  // AI Bot Opponent logic
+  // AI Bot Opponent logic (high precision fluid rendering)
   useEffect(() => {
     if (lobbyState !== 'arena' || !isBotMode || status === 'finished') return
 
-    // Opponent name for bot
     setOpponentStats(prev => ({ ...prev, username: `Bot (Speed: ${botWpm} WPM)` }))
 
     const botInterval = setInterval(() => {
@@ -472,19 +613,11 @@ export default function Battle({ sound: globalSound }) {
       totalKeysRef.current += 1
       sendTypingProgress(currentWordIdx, newVal)
     }
-  };
+  }
 
   // Determine game winner when finished
   useEffect(() => {
-    const bothFinished = (isBotMode ? (status === 'finished' && opponentStats.isFinished) : (status === 'finished' && opponentStats.isFinished)) || 
-                         (mode === 'time' && timeLeft <= 0)
-
-    const guestAndBotFinished = (status === 'finished' || opponentStats.isFinished)
-
     if (status === 'finished' || opponentStats.isFinished) {
-      // Determine winner
-      // Words mode winner is who finishes first or has higher WPM
-      // Time mode winner is who has higher WPM at time limit
       let gameWinner = ''
       if (mode === 'words') {
         const myFinished = status === 'finished'
@@ -503,13 +636,12 @@ export default function Battle({ sound: globalSound }) {
       
       setWinner(gameWinner)
       
-      // Delay transitioning to results to let user see finish screen brief moment
       const t = setTimeout(() => {
         setLobbyState('results')
       }, 1000)
       return () => clearTimeout(t)
     }
-  }, [status, opponentStats.isFinished, opponentStats.wpm, wpm, mode, isBotMode, timeLeft, opponentStats.username])
+  }, [status, opponentStats.isFinished, opponentStats.wpm, wpm, mode, timeLeft, opponentStats.username])
 
   // Rematch
   const handleRematch = () => {
@@ -532,86 +664,127 @@ export default function Battle({ sound: globalSound }) {
 
   // --- RENDERING SCREENS ---
 
-  // 1. Lobby Setup
+  // 1. Lobby Setup Screen with Rooms Browser
   if (lobbyState === 'lobby') {
     return (
-      <div className="battle-wrap">
-        <div className="battle-lobby">
-          <div className="lobby-card">
-            <div className="lobby-title">
-              <Swords size={22} className="accent-color-svg" />
-              <h2>Multiplayer Battle</h2>
-            </div>
-            
-            <div className="lobby-form-group">
-              <div className="form-row">
-                <label>Tier / Difficulty</label>
-                <select className="form-select" value={tier} onChange={(e) => setTier(e.target.value)}>
-                  <option value="basic">Easy</option>
-                  <option value="intermd">Medium</option>
-                  <option value="hard">Hard (Stories)</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <label>Game Mode</label>
-                <select className="form-select" value={mode} onChange={(e) => setMode(e.target.value)}>
-                  <option value="words">Words</option>
-                  <option value="time">Time</option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <label>{mode === 'words' ? 'Word Count' : 'Time Limit'}</label>
-                <select 
-                  className="form-select" 
-                  value={mode === 'words' ? wordCount : timeLimit} 
-                  onChange={(e) => mode === 'words' ? setWordCount(Number(e.target.value)) : setTimeLimit(Number(e.target.value))}
-                >
-                  {mode === 'words' ? (
-                    <>
-                      <option value="10">10 words</option>
-                      <option value="30">30 words</option>
-                      <option value="60">60 words</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="10">10 seconds</option>
-                      <option value="30">30 seconds</option>
-                      <option value="60">60 seconds</option>
-                    </>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            <button className="lobby-btn primary" onClick={handleCreateRoom}>
-              <Play size={16} /> Create Private Room
-            </button>
-
-            <div className="lobby-divider">OR</div>
-
-            <form onSubmit={handleJoinRoom} className="join-row">
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Enter Code (e.g. B-1234)" 
-                value={roomCodeInput}
-                onChange={(e) => setRoomCodeInput(e.target.value)}
-                maxLength={6}
-                required
-              />
-              <button type="submit" className="lobby-btn">
-                Join
-              </button>
-            </form>
+      <div className="battle-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', justifyContent: 'center', alignItems: 'flex-start' }}>
+        
+        {/* Setup card */}
+        <div className="lobby-card" style={{ margin: '0' }}>
+          <div className="lobby-title">
+            <Swords size={22} className="accent-color-svg" />
+            <h2>Create / Join Battle</h2>
           </div>
+          
+          <div className="lobby-form-group">
+            <div className="form-row">
+              <label>Tier / Difficulty</label>
+              <select className="form-select" value={tier} onChange={(e) => setTier(e.target.value)}>
+                <option value="basic">Easy</option>
+                <option value="intermd">Medium</option>
+                <option value="hard">Hard (Stories)</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <label>Game Mode</label>
+              <select className="form-select" value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="words">Words</option>
+                <option value="time">Time</option>
+              </select>
+            </div>
+
+            <div className="form-row">
+              <label>{mode === 'words' ? 'Word Count' : 'Time Limit'}</label>
+              <select 
+                className="form-select" 
+                value={mode === 'words' ? wordCount : timeLimit} 
+                onChange={(e) => mode === 'words' ? setWordCount(Number(e.target.value)) : setTimeLimit(Number(e.target.value))}
+              >
+                {mode === 'words' ? (
+                  <>
+                    <option value="10">10 words</option>
+                    <option value="30">30 words</option>
+                    <option value="60">60 words</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="10">10 seconds</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60">60 seconds</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <button className="lobby-btn primary" onClick={handleCreateRoom}>
+            <Play size={16} /> Create Room
+          </button>
+
+          <div className="lobby-divider">OR</div>
+
+          <form onSubmit={handleJoinRoom} className="join-row">
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="Enter 4-digit Code" 
+              value={roomCodeInput}
+              onChange={(e) => setRoomCodeInput(e.target.value.replace(/\D/g, ''))}
+              maxLength={4}
+              required
+            />
+            <button type="submit" className="lobby-btn">
+              Join
+            </button>
+          </form>
         </div>
+
+        {/* Active Rooms Browser Card */}
+        <div className="lobby-browser">
+          <div className="browser-title">
+            <span>Active Rooms Browser</span>
+            <span className="browser-count">{openRooms.length} Open</span>
+          </div>
+
+          {openRooms.length === 0 ? (
+            <div className="player-card" style={{ padding: '24px', justifyContent: 'center', opacity: 0.5 }}>
+              <span style={{ fontSize: '0.875rem' }}>No active rooms. Create one to host!</span>
+            </div>
+          ) : (
+            openRooms.map((room, idx) => {
+              const status = requestStatus[room.roomId] || 'idle'
+              return (
+                <div key={idx} className="room-browser-card">
+                  <div className="room-browser-info">
+                    <span className="room-host-name">{room.hostName}'s Room</span>
+                    <div className="room-details">
+                      <span>{room.tier.toUpperCase()}</span>
+                      <span>{room.mode.toUpperCase()}: {room.limit}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="room-browser-actions">
+                    <button 
+                      className={`lobby-btn ${status === 'pending' ? '' : 'primary'}`}
+                      style={{ padding: '8px 14px', fontSize: '0.8125rem', minWidth: '110px' }}
+                      disabled={status === 'pending' || room.playersCount >= 2}
+                      onClick={() => handleRequestToJoin(room)}
+                    >
+                      {status === 'pending' ? 'Requesting...' : status === 'declined' ? 'Declined' : 'Request Join'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
       </div>
     )
   }
 
-  // 2. Waiting Room Lobby
+  // 2. Waiting Room Lobby (Host displays requests here)
   if (lobbyState === 'waiting') {
     const oppJoined = players.length > 1
     
@@ -631,6 +804,38 @@ export default function Battle({ sound: globalSound }) {
           </div>
 
           {copied && <div style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '-16px', alignSelf: 'flex-end' }}>Code copied to clipboard!</div>}
+
+          {/* Join Requests (Host UI only) */}
+          {isHost && joinRequests.length > 0 && (
+            <div style={{ border: '1px solid rgba(var(--accent-rgb), 0.2)', padding: '16px', borderRadius: 'var(--radius)', background: 'rgba(var(--accent-rgb), 0.03)' }}>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-hi)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Join Requests
+              </span>
+              <div className="players-list" style={{ gap: '8px' }}>
+                {joinRequests.map((req, idx) => (
+                  <div key={idx} className="player-card" style={{ padding: '10px 14px' }}>
+                    <span className="player-name" style={{ fontSize: '0.875rem' }}>{req.requesterName} wants to join</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        className="lobby-btn primary" 
+                        style={{ padding: '6px 12px', fontSize: '0.75rem' }} 
+                        onClick={() => handleAcceptRequest(req)}
+                      >
+                        Accept
+                      </button>
+                      <button 
+                        className="lobby-btn" 
+                        style={{ padding: '6px 12px', fontSize: '0.75rem' }} 
+                        onClick={() => handleDeclineRequest(req)}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="players-list">
             <div className="player-card">
@@ -723,7 +928,7 @@ export default function Battle({ sound: globalSound }) {
     )
   }
 
-  // 3. Countdown Screen
+  // 3. Countdown Overlay
   if (lobbyState === 'countdown') {
     return (
       <div className="countdown-overlay">
@@ -755,8 +960,26 @@ export default function Battle({ sound: globalSound }) {
             </div>
 
             <div className="arena-typing-box" onClick={() => inputRef.current?.focus()}>
+              {/* Dim overlay when blurred */}
+              {status !== 'finished' && !isFocused && (
+                <div className="focus-error-overlay">
+                  <div className="focus-error-text">
+                    <span>Click to focus</span>
+                  </div>
+                </div>
+              )}
+
               {/* Target Text and typing inputs */}
-              <div style={{ fontSize: '1.5rem', lineHeight: '2.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px', pointerEvents: 'none' }}>
+              <div style={{ 
+                fontSize: '1.5rem', 
+                lineHeight: '2.5rem', 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '10px', 
+                pointerEvents: 'none',
+                opacity: isFocused ? 1 : 0.25,
+                transition: 'opacity 0.25s ease'
+              }}>
                 {gameWords.map((word, idx) => {
                   let colorClass = 'var(--text-dim)'
                   if (idx < currentWordIdx) {
@@ -781,6 +1004,8 @@ export default function Battle({ sound: globalSound }) {
                 style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
                 value={currentInput}
                 onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
                 onChange={() => {}}
                 autoComplete="off"
                 autoCorrect="off"
