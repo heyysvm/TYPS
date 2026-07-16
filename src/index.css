@@ -2029,3 +2029,531 @@ html.light-mode body.glass-ui-active {
   border-color: rgba(var(--accent-rgb), 0.4) !important;
 }
 
+/* ==========================================================================
+   BATTLE MODE - Split Screen Multiplayer Arena
+   ========================================================================== */
+
+.battle-wrap {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 40px;
+  animation: fadeUp 0.3s ease;
+}
+
+/* Lobby Screen */
+.battle-lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 24px;
+}
+
+.lobby-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.lobby-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-hi);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lobby-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.form-select, .form-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color var(--t);
+}
+
+.form-select:focus, .form-input:focus {
+  border-color: var(--accent);
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+}
+
+.lobby-btn {
+  flex: 1;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--t);
+}
+
+.lobby-btn:hover {
+  background: var(--border);
+  color: var(--text-hi);
+}
+
+.lobby-btn.primary {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+
+.lobby-btn.primary:hover {
+  background: var(--accent2);
+}
+
+.lobby-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 16px 0;
+}
+
+.lobby-divider::before, .lobby-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+.lobby-divider:not(:empty)::before {
+  margin-right: .75em;
+}
+
+.lobby-divider:not(:empty)::after {
+  margin-left: .75em;
+}
+
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.join-row input {
+  flex: 1;
+  text-align: center;
+  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Waiting Room */
+.waiting-room {
+  width: 100%;
+  max-width: 640px;
+  margin: 40px auto;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.room-title-block h2 {
+  font-size: 1.25rem;
+  color: var(--text-hi);
+  margin-bottom: 4px;
+}
+
+.room-title-block span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.room-code-badge {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.room-code-badge:hover {
+  background: var(--border);
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.player-avatar.opponent {
+  background: var(--sub);
+  color: var(--text-hi);
+}
+
+.player-name {
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+.player-status {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-status.ready {
+  color: var(--accent);
+}
+
+.bot-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(var(--accent-rgb), 0.05);
+  border: 1px dashed rgba(var(--accent-rgb), 0.2);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+}
+
+.bot-config-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-hi);
+}
+
+/* Battle Arena (Split Screen) */
+.battle-arena {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.arena-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.arena-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.arena-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arena-user-name {
+  font-weight: 700;
+  color: var(--text-hi);
+}
+
+.arena-wpm {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.arena-wpm span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.arena-typing-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  min-height: 240px;
+  position: relative;
+}
+
+.arena-typing-box.opponent-box {
+  opacity: 0.75;
+}
+
+/* Opponent Word Highlight & Caret */
+.opp-word {
+  position: relative;
+  transition: background-color var(--t);
+}
+
+.opp-word.current {
+  background: rgba(var(--accent-rgb), 0.15);
+  border-bottom: 2px solid var(--accent);
+}
+
+.opp-word.typed {
+  color: var(--text-dim);
+}
+
+.opp-caret {
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Countdown Overlay */
+.countdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(var(--bg), 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-number {
+  font-size: 8rem;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  animation: pulseCountdown 1s infinite ease-in-out;
+}
+
+@keyframes pulseCountdown {
+  0% { transform: scale(0.6); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+/* Battle Results */
+.battle-results-wrap {
+  width: 100%;
+  max-width: 800px;
+  margin: 40px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.battle-outcome-banner {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.battle-outcome-banner.win {
+  color: var(--accent);
+  text-shadow: 0 0 16px rgba(var(--accent-rgb), 0.3);
+}
+
+.battle-outcome-banner.lose {
+  color: var(--wrong);
+}
+
+.battle-outcome-banner.draw {
+  color: var(--text);
+}
+
+.results-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+}
+
+.res-split-card {
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.res-split-card.winner {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.15);
+}
+
+.winner-crown {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  background: var(--accent);
+  color: #000;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(var(--accent-rgb), 0.4);
+}
+
+.res-split-header {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-hi);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.res-split-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.res-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.res-metric-label {
+  color: var(--text-muted);
+}
+
+.res-metric-val {
+  font-weight: 700;
+  color: var(--text-hi);
+  font-family: var(--font-mono);
+}
+
+.res-metric-val.wpm-highlight {
+  color: var(--accent);
+  font-size: 1.125rem;
+}
+
+/* Glass UI alignment for Battle */
+.glass-ui-active .lobby-card,
+.glass-ui-active .waiting-room,
+.glass-ui-active .player-card,
+.glass-ui-active .arena-typing-box,
+.glass-ui-active .res-split-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.light-mode.glass-ui-active .lobby-card,
+.light-mode.glass-ui-active .waiting-room,
+.light-mode.glass-ui-active .player-card,
+.light-mode.glass-ui-active .arena-typing-box,
+.light-mode.glass-ui-active .res-split-card {
+  background: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(209, 213, 219, 0.3) !important;
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.06) !important;
+}
+

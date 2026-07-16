@@ -10,8 +10,9 @@ import AuthModal from './components/AuthModal'
 import { useTypingEngine } from './hooks/useTypingEngine'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
-import { RotateCcw, Trophy, History, LogOut, ChevronDown, BarChart2, User, BookOpen } from 'lucide-react'
+import { RotateCcw, Trophy, History, LogOut, ChevronDown, BarChart2, User, BookOpen, Swords } from 'lucide-react'
 import Learn from './components/Learn'
+import Battle from './components/Battle'
 
 let lastSavedTime = 0
 
@@ -192,6 +193,13 @@ export default function App() {
 
           <nav className="header-nav">
             <button
+              className={`hn-btn ${page === 'battle' ? 'active' : ''}`}
+              onClick={() => { handleRestart(); setPage(page === 'battle' ? 'home' : 'battle'); }}
+            >
+              <Swords size={14} />
+              <span>battle</span>
+            </button>
+            <button
               className={`hn-btn ${page === 'learn' ? 'active' : ''}`}
               onClick={() => { handleRestart(); setPage(page === 'learn' ? 'home' : 'learn'); }}
             >
@@ -297,6 +305,7 @@ export default function App() {
 
       {}
       <main className="main">
+        {page === 'battle'      && <Battle sound={sound} />}
         {page === 'leaderboard' && <Leaderboard />}
         {page === 'learn'       && <Learn sound={sound} />}
         {page === 'history'     && <HistoryPage />}
