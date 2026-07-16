@@ -612,6 +612,46 @@ export default function Battle({ sound: globalSound }) {
       setCurrentInput(newVal)
       totalKeysRef.current += 1
       sendTypingProgress(currentWordIdx, newVal)
+
+      // Auto-finish: if this is the LAST word and all chars match, auto-submit
+      const isLastWord = currentWordIdx === gameWords.length - 1
+      if (isLastWord && newVal === currentWord && mode === 'words') {
+        const updatedTyped = [...typedWords, newVal]
+        setTypedWords(updatedTyped)
+        const nextIdx = currentWordIdx + 1
+        setCurrentWordIdx(nextIdx)
+        setCurrentInput('')
+
+        correctCharsRef.current += currentWord.length
+        setCorrectChars(correctCharsRef.current)
+        totalCharsRef.current += newVal.length
+        setTypedCharsCount(totalCharsRef.current)
+
+        const acc = Math.max(0, Math.round(((totalCharsRef.current - mistakesCount) / totalCharsRef.current) * 100))
+        setAccuracy(acc)
+
+        const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+        const finalWpm = elapsedSec > 0.6 ? Math.round((correctCharsRef.current / 5) / (elapsedSec / 60)) : 0
+        setWpm(finalWpm)
+
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'typing_progress',
+            payload: {
+              username: user?.username || 'You',
+              wpm: finalWpm,
+              accuracy: acc,
+              currentWordIdx: nextIdx,
+              currentInputVal: '',
+              isFinished: true
+            }
+          })
+        }
+
+        if (timerRef.current) clearInterval(timerRef.current)
+        setStatus('finished')
+      }
     }
   }
 
@@ -1000,7 +1040,7 @@ export default function Battle({ sound: globalSound }) {
                   
                   if (isCurrent) {
                     return (
-                      <span key={idx} style={{ borderBottom: '2px solid var(--accent)', paddingBottom: '2px', display: 'inline-block' }}>
+                      <span key={idx} style={{ display: 'inline-block' }}>
                         {word.split('').map((char, charIdx) => {
                           let charColor = 'var(--text-dim)'
                           const isCaret = charIdx === currentInput.length
@@ -1010,17 +1050,9 @@ export default function Battle({ sound: globalSound }) {
                           }
                           
                           return (
-                            <span key={charIdx} style={{ color: charColor, position: 'relative' }}>
+                            <span key={charIdx} style={{ color: charColor, position: 'relative', transition: 'color 0.08s ease' }}>
                               {isCaret && (
-                                <span className="battle-caret" style={{
-                                  position: 'absolute',
-                                  left: 0,
-                                  bottom: '2px',
-                                  width: '2px',
-                                  height: '1.1em',
-                                  background: 'var(--accent)',
-                                  animation: 'blink 1s infinite'
-                                }} />
+                                <span className="battle-smooth-caret" />
                               )}
                               {char}
                             </span>
@@ -1030,15 +1062,7 @@ export default function Battle({ sound: globalSound }) {
                         {/* Caret at end of current word */}
                         {currentInput.length === word.length && (
                           <span style={{ position: 'relative' }}>
-                            <span className="battle-caret" style={{
-                              position: 'absolute',
-                              left: 0,
-                              bottom: '2px',
-                              width: '2px',
-                              height: '1.1em',
-                              background: 'var(--accent)',
-                              animation: 'blink 1s infinite'
-                            }} />
+                            <span className="battle-smooth-caret" />
                             &nbsp;
                           </span>
                         )}
@@ -1054,15 +1078,7 @@ export default function Battle({ sound: globalSound }) {
                               )
                             })}
                             <span style={{ position: 'relative' }}>
-                              <span className="battle-caret" style={{
-                                position: 'absolute',
-                                left: 0,
-                                bottom: '2px',
-                                width: '2px',
-                                height: '1.1em',
-                                background: 'var(--accent)',
-                                animation: 'blink 1s infinite'
-                              }} />
+                              <span className="battle-smooth-caret" />
                               &nbsp;
                             </span>
                           </span>

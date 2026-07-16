@@ -2654,4 +2654,25 @@ html.light-mode body.glass-ui-active {
   50% { opacity: 0; }
 }
 
+.battle-smooth-caret {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 3px;
+  height: 1.15em;
+  background: var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 14px rgba(var(--accent-rgb, 226,183,20), 0.8);
+  transition: left 0.06s cubic-bezier(0.25, 0, 0, 1);
+  animation: caretPulse 1s ease-in-out infinite;
+}
+
+@keyframes caretPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+
 
