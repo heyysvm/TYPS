@@ -13,6 +13,8 @@ import { useTheme } from './context/ThemeContext'
 import { RotateCcw, Trophy, History, LogOut, ChevronDown, BarChart2, User, BookOpen } from 'lucide-react'
 import Learn from './components/Learn'
 
+let lastSavedTime = 0
+
 export default function App() {
   const { user, logout, saveTest, getUserStats } = useAuth()
   const { theme, setTheme, themes } = useTheme()
@@ -38,12 +40,10 @@ export default function App() {
   const [previousWpm, setPreviousWpm] = useState(0)
 
   const userMenuRef = useRef(null)
-  const savingRef = useRef(false)
 
   const triggerRestart = useCallback(() => {
     setRestartKey(k => k + 1)
     setResultSaved(false)
-    savingRef.current = false
   }, [])
 
   const handleRestart = useCallback(() => {
@@ -107,9 +107,15 @@ export default function App() {
 
   
   useEffect(() => {
-    if (status === 'finished' && !resultSaved && !savingRef.current) {
+    if (status === 'finished' && !resultSaved) {
       if (wpm > 0 && (charsCorrect || 0) >= 5) {
-        savingRef.current = true
+        const now = Date.now()
+        if (now - lastSavedTime < 2000) {
+          setResultSaved(true)
+          return
+        }
+        lastSavedTime = now
+
         const testData = {
           wpm,
           rawWpm,
