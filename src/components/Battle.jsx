@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { Swords, Trophy, Play, Copy, User, Volume2, VolumeX, ArrowLeft, Crown, Zap, Target, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -70,12 +70,56 @@ export default function Battle({ sound: globalSound }) {
   const totalCharsRef = useRef(0)
   const totalKeysRef = useRef(0)
 
-  // Initialize unique user ID for requests mapping
+  const wordsContainerRef = useRef(null)
+  const [caretPos, setCaretPos] = useState({ left: 0, top: 0 })
+  const [resizeToggle, setResizeToggle] = useState(false)
+
   useEffect(() => {
-    if (!myUserId.current) {
-      myUserId.current = 'u_' + Math.random().toString(36).substring(2, 8)
-    }
+    const handleResize = () => setResizeToggle(prev => !prev)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useLayoutEffect(() => {
+    if (!wordsContainerRef.current) return
+    const wordEl = wordsContainerRef.current.childNodes[currentWordIdx]
+    if (!wordEl) return
+
+    const charEls = wordEl.querySelectorAll('.ch')
+    const caretIdx = currentInput.length
+
+    let left, top
+
+    if (caretIdx === 0) {
+      const first = charEls[0]
+      if (first) {
+        left = wordEl.offsetLeft + first.offsetLeft
+        top = wordEl.offsetTop
+      } else {
+        left = wordEl.offsetLeft
+        top = wordEl.offsetTop
+      }
+    } else {
+      const prev = charEls[caretIdx - 1]
+      if (prev) {
+        left = wordEl.offsetLeft + prev.offsetLeft + prev.offsetWidth
+        top = wordEl.offsetTop
+      } else {
+        const last = charEls[charEls.length - 1]
+        if (last) {
+          left = wordEl.offsetLeft + last.offsetLeft + last.offsetWidth
+          top = wordEl.offsetTop
+        } else {
+          left = wordEl.offsetLeft
+          top = wordEl.offsetTop
+        }
+      }
+    }
+
+    if (left !== undefined) {
+      setCaretPos({ left: left - 1, top })
+    }
+  }, [currentInput, currentWordIdx, gameWords, resizeToggle])
 
   // Web Audio keyclick
   const playClick = useCallback(() => {
@@ -1015,16 +1059,33 @@ export default function Battle({ sound: globalSound }) {
               )}
 
               {/* Target Text (Overwrite inline highlighting) */}
-              <div style={{ 
-                fontSize: '1.625rem', 
-                lineHeight: '2.625rem', 
-                display: 'flex', 
-                flexWrap: 'wrap', 
-                gap: '12px', 
-                pointerEvents: 'none',
-                opacity: isFocused ? 1 : 0.25,
-                transition: 'opacity 0.25s ease'
-              }}>
+              <div 
+                ref={wordsContainerRef}
+                style={{ 
+                  position: 'relative',
+                  fontSize: '1.625rem', 
+                  lineHeight: '2.625rem', 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '12px', 
+                  pointerEvents: 'none',
+                  opacity: isFocused ? 1 : 0.25,
+                  transition: 'opacity 0.25s ease'
+                }}
+              >
+                {/* Single absolute smooth caret */}
+                {status !== 'finished' && isFocused && (
+                  <span
+                    className="battle-smooth-caret"
+                    style={{
+                      position: 'absolute',
+                      left: caretPos.left,
+                      top: caretPos.top + 3,
+                      transition: 'left 0.08s linear, top 0.08s linear',
+                    }}
+                  />
+                )}
+
                 {gameWords.map((word, idx) => {
                   const isCurrent = idx === currentWordIdx
                   const isCompleted = idx < currentWordIdx
@@ -1032,7 +1093,7 @@ export default function Battle({ sound: globalSound }) {
                   if (isCompleted) {
                     const isCorrect = typedWords[idx] === word
                     return (
-                      <span key={idx} style={{ color: isCorrect ? 'var(--accent)' : 'var(--wrong)' }}>
+                      <span key={idx} className="word" style={{ color: isCorrect ? 'var(--accent)' : 'var(--wrong)' }}>
                         {word}
                       </span>
                     )
@@ -1040,48 +1101,29 @@ export default function Battle({ sound: globalSound }) {
                   
                   if (isCurrent) {
                     return (
-                      <span key={idx} style={{ display: 'inline-block' }}>
+                      <span key={idx} className="word curr" style={{ display: 'inline-block' }}>
                         {word.split('').map((char, charIdx) => {
                           let charColor = 'var(--text-dim)'
-                          const isCaret = charIdx === currentInput.length
-                          
                           if (charIdx < currentInput.length) {
                             charColor = currentInput[charIdx] === char ? 'var(--accent)' : 'var(--wrong)'
                           }
                           
                           return (
-                            <span key={charIdx} style={{ color: charColor, position: 'relative', transition: 'color 0.08s ease' }}>
-                              {isCaret && (
-                                <span className="battle-smooth-caret" />
-                              )}
+                            <span key={charIdx} className="ch" style={{ color: charColor, transition: 'color 0.08s ease' }}>
                               {char}
                             </span>
                           )
                         })}
                         
-                        {/* Caret at end of current word */}
-                        {currentInput.length === word.length && (
-                          <span style={{ position: 'relative' }}>
-                            <span className="battle-smooth-caret" />
-                            &nbsp;
-                          </span>
-                        )}
-
                         {/* Render extra typed characters if any */}
                         {currentInput.length > word.length && (
-                          <span>
-                            {currentInput.slice(word.length).split('').map((char, charIdx) => {
-                              return (
-                                <span key={`extra-${charIdx}`} style={{ color: 'var(--wrong)', position: 'relative' }}>
-                                  {char}
-                                </span>
-                              )
-                            })}
-                            <span style={{ position: 'relative' }}>
-                              <span className="battle-smooth-caret" />
-                              &nbsp;
-                            </span>
-                          </span>
+                          currentInput.slice(word.length).split('').map((char, charIdx) => {
+                            return (
+                              <span key={`extra-${charIdx}`} className="ch extra" style={{ color: 'var(--wrong)' }}>
+                                {char}
+                              </span>
+                            )
+                          })
                         )}
                       </span>
                     )
@@ -1089,7 +1131,7 @@ export default function Battle({ sound: globalSound }) {
                   
                   // Untyped words
                   return (
-                    <span key={idx} style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
+                    <span key={idx} className="word" style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
                       {word}
                     </span>
                   )
