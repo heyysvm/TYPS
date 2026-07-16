@@ -44,6 +44,7 @@ export default function Battle({ sound: globalSound }) {
     wpm: 0,
     accuracy: 100,
     currentWordIdx: 0,
+    currentInputVal: '',
     isFinished: false
   })
 
@@ -94,6 +95,7 @@ export default function Battle({ sound: globalSound }) {
       wpm: 0,
       accuracy: 100,
       currentWordIdx: 0,
+      currentInputVal: '',
       isFinished: false
     }))
     
@@ -139,6 +141,7 @@ export default function Battle({ sound: globalSound }) {
           wpm: payload.wpm,
           accuracy: payload.accuracy,
           currentWordIdx: payload.currentWordIdx,
+          currentInputVal: payload.currentInputVal || '',
           isFinished: payload.isFinished
         })
       })
@@ -325,23 +328,49 @@ export default function Battle({ sound: globalSound }) {
           return prev
         }
 
-        // botWpm / 60 = words per second
-        // increment by a step
-        const step = botWpm / 60
+        const step = (botWpm / 60) * 0.1
         const nextIdx = prev.currentWordIdx + step
         const isFinished = nextIdx >= gameWords.length
 
+        const integerPart = Math.floor(nextIdx)
+        const decimalPart = nextIdx - integerPart
+        const currentWord = gameWords[integerPart] || ''
+        const currentInputVal = currentWord.slice(0, Math.floor(decimalPart * currentWord.length))
+
         return {
-          ...prev,
+          username: prev.username,
           currentWordIdx: Math.min(gameWords.length, nextIdx),
           wpm: botWpm,
+          accuracy: 100,
+          currentInputVal,
           isFinished
         }
       })
-    }, 1000)
+    }, 100)
 
     return () => clearInterval(botInterval)
   }, [lobbyState, isBotMode, botWpm, gameWords, status])
+
+  // Helper to send character-by-character updates to opponent
+  const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false) => {
+    if (channelRef.current) {
+      const elapsedSec = elapsed || 0.001
+      const currentWpm = Math.round((correctChars / 5) / (elapsedSec / 60))
+      
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'typing_progress',
+        payload: {
+          username: user?.username || 'You',
+          wpm: currentWpm,
+          accuracy,
+          currentWordIdx: wordIdx,
+          currentInputVal: inputVal,
+          isFinished: isFinishedFlag
+        }
+      })
+    }
+  }
 
   // Handle typing input keydowns
   const handleKeyDown = (e) => {
@@ -359,7 +388,9 @@ export default function Battle({ sound: globalSound }) {
     if (key === 'Backspace') {
       e.preventDefault()
       if (currentInput.length > 0) {
-        setCurrentInput(prev => prev.slice(0, -1))
+        const newVal = currentInput.slice(0, -1)
+        setCurrentInput(newVal)
+        sendTypingProgress(currentWordIdx, newVal)
       }
       return
     }
@@ -391,7 +422,7 @@ export default function Battle({ sound: globalSound }) {
       const acc = Math.max(0, Math.round(((totalTyped - (mistakesCount + (isCorrect ? 0 : 1))) / totalTyped) * 100))
       setAccuracy(acc)
 
-      // Broadcast progress
+      // Broadcast progress on word submission
       const currentWpm = Math.round((newCorrect / 5) / (elapsed > 0 ? elapsed / 60 : 0.001))
       const isFinished = (mode === 'words' && nextIdx >= gameWords.length)
 
@@ -404,6 +435,7 @@ export default function Battle({ sound: globalSound }) {
             wpm: currentWpm,
             accuracy: acc,
             currentWordIdx: nextIdx,
+            currentInputVal: '',
             isFinished
           }
         })
@@ -420,7 +452,9 @@ export default function Battle({ sound: globalSound }) {
     // Letter characters
     if (key.length === 1) {
       if (currentInput.length >= currentWord.length + 10) return
-      setCurrentInput(prev => prev + key)
+      const newVal = currentInput + key
+      setCurrentInput(newVal)
+      sendTypingProgress(currentWordIdx, newVal)
     }
   };
 
@@ -706,7 +740,7 @@ export default function Battle({ sound: globalSound }) {
 
             <div className="arena-typing-box" onClick={() => inputRef.current?.focus()}>
               {/* Target Text and typing inputs */}
-              <div style={{ fontSize: '1.25rem', lineHeight: '2rem', display: 'flex', flexWrap: 'wrap', gap: '8px', pointerEvents: 'none' }}>
+              <div style={{ fontSize: '1.5rem', lineHeight: '2.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px', pointerEvents: 'none' }}>
                 {gameWords.map((word, idx) => {
                   let colorClass = 'var(--text-dim)'
                   if (idx < currentWordIdx) {
@@ -730,16 +764,19 @@ export default function Battle({ sound: globalSound }) {
                 className="hidden-typing-input"
                 style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
                 value={currentInput}
-                onChange={handleKeyDown}
+                onKeyDown={handleKeyDown}
+                onChange={() => {}}
                 autoComplete="off"
+                autoCorrect="off"
                 autoCapitalize="off"
+                spellCheck="false"
               />
 
               {/* Display live current typed input */}
               {status !== 'finished' && (
                 <div style={{ marginTop: '24px', borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.25rem', color: 'var(--accent)' }}>
-                    {currentInput || <span style={{ opacity: 0.3, fontStyle: 'italic', fontSize: '0.9375rem' }}>type here...</span>}
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.5rem', color: 'var(--accent)' }}>
+                    {currentInput || <span style={{ opacity: 0.3, fontStyle: 'italic', fontSize: '1.125rem' }}>type here...</span>}
                   </span>
                   {mode === 'time' && (
                     <span style={{ color: timeLeft <= 5 ? 'var(--wrong)' : 'var(--text-muted)', fontWeight: 700 }}>
@@ -766,7 +803,7 @@ export default function Battle({ sound: globalSound }) {
             </div>
 
             <div className="arena-typing-box opponent-box">
-              <div style={{ fontSize: '1.25rem', lineHeight: '2rem', display: 'flex', flexWrap: 'wrap', gap: '8px', opacity: 0.6 }}>
+              <div style={{ fontSize: '1.5rem', lineHeight: '2.5rem', display: 'flex', flexWrap: 'wrap', gap: '10px', opacity: 0.6 }}>
                 {gameWords.map((word, idx) => {
                   const isCurrent = idx === Math.floor(opponentStats.currentWordIdx)
                   const isTyped = idx < Math.floor(opponentStats.currentWordIdx)
@@ -776,8 +813,24 @@ export default function Battle({ sound: globalSound }) {
                       key={idx} 
                       className={`opp-word ${isCurrent ? 'current' : ''} ${isTyped ? 'typed' : ''}`}
                     >
-                      {word}
-                      {isCurrent && <span className="opp-caret" />}
+                      {isCurrent ? (
+                        <span>
+                          <span style={{ color: 'var(--accent)' }}>
+                            {word.slice(0, (opponentStats.currentInputVal || '').length)}
+                          </span>
+                          <span className="opp-caret" style={{ 
+                            display: 'inline-block',
+                            width: '2px', 
+                            height: '1.1em', 
+                            background: 'var(--accent)', 
+                            verticalAlign: 'middle',
+                            margin: '0 1px'
+                          }} />
+                          <span style={{ opacity: 0.35 }}>
+                            {word.slice((opponentStats.currentInputVal || '').length)}
+                          </span>
+                        </span>
+                      ) : word}
                     </span>
                   )
                 })}
