@@ -83,7 +83,7 @@ export const stories = [
   "In the year 1888, the inventor Nikola Tesla patented the alternating current induction motor. This breakthrough allowed electricity to be transmitted over long distances, powering the industrial revolution and modern cities.",
   "The majestic mountains were capped with perpetual snow, rising high above the green pine forests. A narrow path wound up the steep cliffs, used only by mountain goats and adventurous hikers seeking a spectacular view.",
   "Cybersecurity is a constant game of cat and mouse. Hackers search for vulnerabilities in software, while security analysts patch systems and monitor networks for anomalies. Always use strong, unique passwords for every account.",
-  "A quiet café sat on the corner of the cobblestone street, smelling of freshly ground espresso and warm croissants. Rain fell gently outside, creating a soothing melody as customers read books and talked softly.",
+  "A quiet cafe sat on the corner of the cobblestone street, smelling of freshly ground espresso and warm croissants. Rain fell gently outside, creating a soothing melody as customers read books and talked softly.",
   "According to quantum mechanics, particles can exist in multiple states simultaneously until they are observed. This phenomenon, known as superposition, is the foundation of quantum computing, which will redefine technology.",
   "The submarine descended into the Mariana Trench, the deepest part of the world's oceans. At 10,000 meters down, the pressure is immense, and the water is pitch black. Strange, bioluminescent creatures swam past the window."
 ]
