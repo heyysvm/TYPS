@@ -82,7 +82,7 @@ export default function Battle({ sound: globalSound }) {
 
   useLayoutEffect(() => {
     if (!wordsContainerRef.current) return
-    const wordEl = wordsContainerRef.current.childNodes[currentWordIdx]
+    const wordEl = wordsContainerRef.current.querySelectorAll('.word')[currentWordIdx]
     if (!wordEl) return
 
     const charEls = wordEl.querySelectorAll('.ch')
@@ -1080,8 +1080,10 @@ export default function Battle({ sound: globalSound }) {
                     style={{
                       position: 'absolute',
                       left: caretPos.left,
-                      top: caretPos.top + 3,
-                      transition: 'left 0.08s linear, top 0.08s linear',
+                      top: caretPos.top + 9,
+                      width: '2px',
+                      height: '1.5rem',
+                      transition: 'left 0.05s cubic-bezier(0.25, 0, 0, 1), top 0s',
                     }}
                   />
                 )}
