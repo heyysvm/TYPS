@@ -300,7 +300,7 @@ export default function Battle({ sound: globalSound }) {
 
         // If host, immediately broadcast config
         if (hostFlag) {
-          const initialWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(wordCount * 4, 150))
+          const initialWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
           setGameWords(initialWords)
           channel.send({
             type: 'broadcast',
@@ -729,7 +729,7 @@ export default function Battle({ sound: globalSound }) {
 
   // Rematch
   const handleRematch = () => {
-    const nextWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(wordCount * 4, 150))
+    const nextWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
     setGameWords(nextWords)
     
     if (channelRef.current) {

@@ -56,7 +56,7 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
   }
 
   const initWords = useCallback(() => {
-    const count     = mode === 'words' ? wordCount : Math.max(wordCount * 4, 200)
+    const count     = mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300)
     const generated = generateWords(tier, count)
 
     wordsRef.current          = generated
@@ -239,6 +239,16 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
 
       currentWordIdxRef.current = nextIdx
       currentInputRef.current   = ''
+
+      // Infinite text stream for time mode (prevents running out of text at 200-300 WPM)
+      if (mode === 'time' && nextIdx >= wordsRef.current.length - 15) {
+        const moreWords = generateWords(tier, 100)
+        wordsRef.current = [...wordsRef.current, ...moreWords]
+        setWords([...wordsRef.current])
+        typedCharsRef.current = [...typedCharsRef.current, ...Array(moreWords.length).fill(null).map(() => [])]
+        setTypedChars(prev => [...prev, ...Array(moreWords.length).fill(null).map(() => [])])
+      }
+
       setCWI(nextIdx)
       setCurrentInput('')
       return
