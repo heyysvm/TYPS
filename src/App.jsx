@@ -23,7 +23,7 @@ export default function App() {
   
   const [tier, setTier]           = useState('basic')
   const [mode, setMode]           = useState('words')
-  const [wordCount, setWordCount] = useState(30)
+  const [wordCount, setWordCount] = useState(10)
   const [timeLimit, setTimeLimit] = useState(30)
   const [customVal, setCustomVal] = useState('')
   const [showCustom, setShowCustom] = useState(false)
