@@ -643,67 +643,6 @@ export default function Battle({ sound: globalSound }) {
     return Math.max(1.2, Number((rawTime + 1.0).toFixed(2)))
   }, [rushSpeed])
 
-  const handleLifeLoss = useCallback(() => {
-    playErrorClick()
-    setRushFlashRed(true)
-    setTimeout(() => setRushFlashRed(false), 200)
-
-    setLives(prev => {
-      const nextLives = prev - 1
-      const nextIdx = currentWordIdx + 1
-
-      if (nextLives <= 0) {
-        setStatus('finished')
-        if (timerRef.current) clearInterval(timerRef.current)
-
-        if (channelRef.current) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'typing_progress',
-            payload: {
-              username: user?.username || 'You',
-              wpm: 0,
-              accuracy,
-              currentWordIdx: nextIdx,
-              currentInputVal: '',
-              isFinished: true,
-              lives: 0,
-              score
-            }
-          })
-        }
-      } else {
-        setCurrentWordIdx(nextIdx)
-        setCurrentInput('')
-
-        const nextWord = gameWords[nextIdx] || 'rush'
-        const tLimit = calculateWordTime(nextWord)
-        setRushWordTimeLimit(tLimit)
-        setRushWordTimeLeft(tLimit)
-
-        sendTypingProgress(nextIdx, '')
-      }
-      return nextLives
-    })
-  }, [currentWordIdx, gameWords, calculateWordTime, sendTypingProgress, user, accuracy, score, playErrorClick])
-
-  useEffect(() => {
-    if (lobbyState !== 'arena' || status !== 'running' || mode !== 'rush') return
-
-    const rushTimer = setInterval(() => {
-      setRushWordTimeLeft(prev => {
-        const next = Number((prev - 0.05).toFixed(2))
-        if (next <= 0) {
-          handleLifeLoss()
-          return 0
-        }
-        return next
-      })
-    }, 50)
-
-    return () => clearInterval(rushTimer)
-  }, [lobbyState, status, mode, handleLifeLoss])
-
   const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false, scoreVal = score) => {
     const now = Date.now()
     const forceSend = isFinishedFlag || inputVal === '' || inputVal.length <= 1
@@ -767,6 +706,67 @@ export default function Battle({ sound: globalSound }) {
 
     return () => clearInterval(flushInterval)
   }, [lobbyState, status, accuracy, lives, mode])
+
+  const handleLifeLoss = useCallback(() => {
+    playErrorClick()
+    setRushFlashRed(true)
+    setTimeout(() => setRushFlashRed(false), 200)
+
+    setLives(prev => {
+      const nextLives = prev - 1
+      const nextIdx = currentWordIdx + 1
+
+      if (nextLives <= 0) {
+        setStatus('finished')
+        if (timerRef.current) clearInterval(timerRef.current)
+
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'typing_progress',
+            payload: {
+              username: user?.username || 'You',
+              wpm: 0,
+              accuracy,
+              currentWordIdx: nextIdx,
+              currentInputVal: '',
+              isFinished: true,
+              lives: 0,
+              score
+            }
+          })
+        }
+      } else {
+        setCurrentWordIdx(nextIdx)
+        setCurrentInput('')
+
+        const nextWord = gameWords[nextIdx] || 'rush'
+        const tLimit = calculateWordTime(nextWord)
+        setRushWordTimeLimit(tLimit)
+        setRushWordTimeLeft(tLimit)
+
+        sendTypingProgress(nextIdx, '')
+      }
+      return nextLives
+    })
+  }, [currentWordIdx, gameWords, calculateWordTime, sendTypingProgress, user, accuracy, score, playErrorClick])
+
+  useEffect(() => {
+    if (lobbyState !== 'arena' || status !== 'running' || mode !== 'rush') return
+
+    const rushTimer = setInterval(() => {
+      setRushWordTimeLeft(prev => {
+        const next = Number((prev - 0.05).toFixed(2))
+        if (next <= 0) {
+          handleLifeLoss()
+          return 0
+        }
+        return next
+      })
+    }, 50)
+
+    return () => clearInterval(rushTimer)
+  }, [lobbyState, status, mode, handleLifeLoss])
 
   const handleKeyDown = (e) => {
     if (lobbyState !== 'arena' || status === 'finished') return
