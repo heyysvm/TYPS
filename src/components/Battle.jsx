@@ -276,7 +276,16 @@ export default function Battle({ sound: globalSound }) {
           setOpponentStats(prev => ({ ...prev, username: payload.hostName }))
         }
       })
-      .on('broadcast', { event: 'start_countdown' }, () => {
+      .on('broadcast', { event: 'start_countdown' }, ({ payload }) => {
+        if (payload) {
+          setTier(payload.tier)
+          setMode(payload.mode)
+          setWordCount(payload.wordCount)
+          setTimeLimit(payload.timeLimit)
+          setRushSpeed(payload.rushSpeed || 60)
+          setGameWords(payload.words)
+          gameWordsRef.current = payload.words
+        }
         setLobbyState('countdown')
       })
       .on('broadcast', { event: 'rematch' }, ({ payload }) => {
@@ -448,11 +457,23 @@ export default function Battle({ sound: globalSound }) {
   }
 
   const handleStartBattle = () => {
+    const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
+    const freshWords = generateWords(tier, wordQty)
+    setGameWords(freshWords)
+    gameWordsRef.current = freshWords
+
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'start_countdown',
-        payload: {}
+        payload: {
+          tier,
+          mode,
+          wordCount,
+          timeLimit,
+          rushSpeed,
+          words: freshWords
+        }
       })
     }
     setLobbyState('countdown')
