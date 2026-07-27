@@ -6,14 +6,12 @@ import { supabase } from '../lib/supabase'
 
 export default function WordRush({ sound: globalSound }) {
   const { user } = useAuth()
-  const [gameState, setGameState] = useState('menu') // menu | countdown | active | results
+  const [gameState, setGameState] = useState('menu')
   const [sound, setSound] = useState(globalSound)
-  
-  // Configurations
+
   const [tier, setTier] = useState('basic')
-  const [speedWpm, setSpeedWpm] = useState(60) // 40 | 60 | 90 | 120
-  
-  // Game Play States
+  const [speedWpm, setSpeedWpm] = useState(60)
+
   const [wordList, setWordList] = useState([])
   const [currentWordIdx, setCurrentWordIdx] = useState(0)
   const [currentInput, setCurrentInput] = useState('')
@@ -23,15 +21,12 @@ export default function WordRush({ sound: globalSound }) {
   const [flashGreen, setFlashGreen] = useState(false)
   const [countdown, setCountdown] = useState(3)
 
-  // Timer States for the active word
   const [wordTimeLimit, setWordTimeLimit] = useState(2.0)
   const [wordTimeLeft, setWordTimeLeft] = useState(2.0)
-  
-  // Leaderboard States
+
   const [leaderboardData, setLeaderboardData] = useState([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true)
 
-  // Highscore state
   const [highScore, setHighScore] = useState(() => {
     return Number(localStorage.getItem('typs_rush_highscore') || 0)
   })
@@ -39,8 +34,7 @@ export default function WordRush({ sound: globalSound }) {
   const inputRef = useRef(null)
   const gameTimerRef = useRef(null)
   const audioCtxRef = useRef(null)
-  
-  // Play sound effect
+
   const playSound = useCallback((freq, type = 'sine', duration = 0.08, volume = 0.02) => {
     if (!sound) return
     try {
@@ -57,16 +51,14 @@ export default function WordRush({ sound: globalSound }) {
     } catch {}
   }, [sound])
 
-  // Get timer limit for word based on length and target speed (WPM)
   const calculateWordTime = useCallback((word) => {
-    // 1 standard word = 5 characters. So chars/sec = (speedWpm * 5) / 60
+
     const charsPerSec = (speedWpm * 5) / 60
     const rawTime = word.length / charsPerSec
-    // Add safety buffer (e.g. 1.0 second base buffer so it's humanly playable)
+
     return Math.max(1.2, Number((rawTime + 1.0).toFixed(2)))
   }, [speedWpm])
 
-  // Fetch overall leaderboard
   const fetchLeaderboard = useCallback(async () => {
     setLoadingLeaderboard(true)
     try {
@@ -117,7 +109,6 @@ export default function WordRush({ sound: globalSound }) {
     }
   }, [gameState, fetchLeaderboard])
 
-  // Start new game
   const startGame = useCallback(() => {
     const list = generateWords(tier, 200)
     setWordList(list)
@@ -129,7 +120,6 @@ export default function WordRush({ sound: globalSound }) {
     setCountdown(3)
   }, [tier])
 
-  // Handle countdown
   useEffect(() => {
     if (gameState !== 'countdown') return
     const interval = setInterval(() => {
@@ -150,7 +140,6 @@ export default function WordRush({ sound: globalSound }) {
     return () => clearInterval(interval)
   }, [gameState, wordList, calculateWordTime])
 
-  // Lost a life helper
   const handleLifeLoss = useCallback(() => {
     playSound(150, 'sawtooth', 0.2, 0.04)
     setFlashRed(true)
@@ -159,18 +148,17 @@ export default function WordRush({ sound: globalSound }) {
     setLives(prev => {
       const nextLives = prev - 1
       if (nextLives <= 0) {
-        // Game Over
+
         setGameState('results')
         if (score > highScore) {
           setHighScore(score)
           localStorage.setItem('typs_rush_highscore', String(score))
         }
 
-        // Save score to Supabase if logged in
         if (user) {
           supabase.from('tests').insert({
             user_id: user.id,
-            wpm: score, // store score in wpm field
+            wpm: score,
             raw_wpm: score,
             accuracy: 100,
             tier: tier,
@@ -183,11 +171,11 @@ export default function WordRush({ sound: globalSound }) {
           })
         }
       } else {
-        // Move to next word
+
         const nextIdx = currentWordIdx + 1
         setCurrentWordIdx(nextIdx)
         setCurrentInput('')
-        // Generate more words if running low
+
         if (nextIdx >= wordList.length - 5) {
           setWordList(prevList => [...prevList, ...generateWords(tier, 100)])
         }
@@ -200,7 +188,6 @@ export default function WordRush({ sound: globalSound }) {
     })
   }, [currentWordIdx, wordList, tier, score, highScore, calculateWordTime, playSound, user, fetchLeaderboard])
 
-  // Active game timer tick
   useEffect(() => {
     if (gameState !== 'active') return
 
@@ -218,13 +205,11 @@ export default function WordRush({ sound: globalSound }) {
     return () => clearInterval(gameTimerRef.current)
   }, [gameState, handleLifeLoss])
 
-  // Handle typing input
   const handleKeyDown = (e) => {
     if (gameState !== 'active') return
     const { key } = e
     const currentWord = wordList[currentWordIdx]
 
-    // Backspace
     if (key === 'Backspace') {
       e.preventDefault()
       setCurrentInput(prev => prev.slice(0, -1))
@@ -232,13 +217,11 @@ export default function WordRush({ sound: globalSound }) {
       return
     }
 
-    // Key click sound
     if (key.length === 1) {
       playSound(800, 'square', 0.04, 0.01)
       const nextInput = currentInput + key
       setCurrentInput(nextInput)
 
-      // Instantly submit when perfect match is hit (no space required!)
       if (nextInput === currentWord) {
         playSound(1000, 'sine', 0.08, 0.02)
         setFlashGreen(true)
@@ -261,7 +244,6 @@ export default function WordRush({ sound: globalSound }) {
     }
   }
 
-  // Global key listener redirection & Tab + Enter restart handler
   useEffect(() => {
     let tabPressed = false
 
@@ -291,16 +273,13 @@ export default function WordRush({ sound: globalSound }) {
     return () => window.removeEventListener('keydown', handleGlobalFocusRedirect)
   }, [gameState, startGame])
 
-  // Percentage for countdown progress bar
   const timeLeftPercent = Math.max(0, (wordTimeLeft / wordTimeLimit) * 100)
-
-  // --- RENDERING VIEWS ---
 
   if (gameState === 'menu') {
     return (
       <div className="battle-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', justifyContent: 'center', alignItems: 'flex-start', margin: '40px auto 0', maxWidth: '1000px' }}>
         
-        {/* Play Setup Card */}
+        {}
         <div className="lobby-card" style={{ flex: '1 1 420px', margin: '0' }}>
           <div className="lobby-title" style={{ justifyContent: 'center' }}>
             <Zap size={24} className="accent-color-svg" />
@@ -345,7 +324,7 @@ export default function WordRush({ sound: globalSound }) {
           </button>
         </div>
 
-        {/* Overall Leaderboard Card */}
+        {}
         <div className="lobby-browser" style={{ flex: '1 1 360px', margin: '0', minHeight: '380px' }}>
           <div className="browser-title">
             <span>Overall Leaderboard</span>
@@ -402,7 +381,7 @@ export default function WordRush({ sound: globalSound }) {
       <div className={`battle-wrap ${flashRed ? 'flash-red-active' : ''} ${flashGreen ? 'flash-green-active' : ''}`} style={{ transition: 'all 0.15s ease' }}>
         <div className="lobby-card" style={{ maxWidth: '520px', margin: '40px auto 0', padding: '36px', position: 'relative' }}>
           
-          {/* Header Stats */}
+          {}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <div style={{ display: 'flex', gap: '4px' }}>
               {Array.from({ length: 3 }).map((_, i) => (
@@ -422,7 +401,7 @@ export default function WordRush({ sound: globalSound }) {
             </div>
           </div>
 
-          {/* Shrinking progress timer bar */}
+          {}
           <div style={{ width: '100%', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden', marginBottom: '40px' }}>
             <div 
               style={{ 
@@ -434,9 +413,9 @@ export default function WordRush({ sound: globalSound }) {
             />
           </div>
 
-          {/* Typing Area Core */}
+          {}
           <div style={{ textAlign: 'center', minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-            {/* Word to type (Letter-by-letter comparison highlights) */}
+            {}
             <div style={{ fontSize: '2.5rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', marginBottom: '24px', color: 'var(--text-hi)', display: 'flex', gap: '2px', justifyContent: 'center', flexWrap: 'wrap' }}>
               {currentWord.split('').map((char, charIdx) => {
                 let charColor = 'var(--text-dim)'
@@ -455,7 +434,7 @@ export default function WordRush({ sound: globalSound }) {
                 )
               })}
               
-              {/* Extra typed characters */}
+              {}
               {currentInput.length > currentWord.length && (
                 currentInput.slice(currentWord.length).split('').map((char, charIdx) => (
                   <span key={`extra-${charIdx}`} style={{ color: 'var(--wrong)', opacity: 1 }}>
@@ -465,13 +444,13 @@ export default function WordRush({ sound: globalSound }) {
               )}
             </div>
 
-            {/* Current Input preview helper */}
+            {}
             <div style={{ height: '32px', fontSize: '1.25rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
               {currentInput || <span style={{ opacity: 0.15, fontStyle: 'italic' }}>type word...</span>}
             </div>
           </div>
 
-          {/* Hidden text input */}
+          {}
           <input
             ref={inputRef}
             type="text"

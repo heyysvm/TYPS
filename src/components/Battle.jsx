@@ -6,48 +6,43 @@ import { generateWords } from '../data/words'
 
 export default function Battle({ sound: globalSound }) {
   const { user } = useAuth()
-  const [lobbyState, setLobbyState] = useState('lobby') // lobby | waiting | countdown | arena | results
+  const [lobbyState, setLobbyState] = useState('lobby')
   const [roomId, setRoomId] = useState('')
   const [roomCodeInput, setRoomCodeInput] = useState('')
   const [isHost, setIsHost] = useState(false)
   const [players, setPlayers] = useState([])
   const [sound, setSound] = useState(globalSound)
-  
-  // Room Configuration
+
   const [tier, setTier] = useState('basic')
   const [mode, setMode] = useState('words')
   const [wordCount, setWordCount] = useState(30)
   const [timeLimit, setTimeLimit] = useState(30)
   const [isBotMode, setIsBotMode] = useState(false)
   const [botWpm, setBotWpm] = useState(60)
-  
-  // Word Rush Config
-  const [rushSpeed, setRushSpeed] = useState(60) // WPM
+
+  const [rushSpeed, setRushSpeed] = useState(60)
   const [lives, setLives] = useState(3)
   const [rushWordTimeLimit, setRushWordTimeLimit] = useState(2.0)
   const [rushWordTimeLeft, setRushWordTimeLeft] = useState(2.0)
   const [rushFlashRed, setRushFlashRed] = useState(false)
   const [rushFlashGreen, setRushFlashGreen] = useState(false)
 
-  // Typing Arena States
   const [gameWords, setGameWords] = useState([])
   const [typedWords, setTypedWords] = useState([])
   const [currentInput, setCurrentInput] = useState('')
   const [currentWordIdx, setCurrentWordIdx] = useState(0)
-  const [status, setStatus] = useState('idle') // idle | running | finished
+  const [status, setStatus] = useState('idle')
   const [startTime, setStartTime] = useState(null)
   const [elapsed, setElapsed] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
   const [isFocused, setIsFocused] = useState(false)
 
-  // Live Metrics
   const [wpm, setWpm] = useState(0)
   const [accuracy, setAccuracy] = useState(100)
   const [correctChars, setCorrectChars] = useState(0)
   const [typedCharsCount, setTypedCharsCount] = useState(0)
   const [mistakesCount, setMistakesCount] = useState(0)
 
-  // Opponent Live Metrics
   const [opponentStats, setOpponentStats] = useState({
     username: 'Waiting...',
     wpm: 0,
@@ -58,12 +53,10 @@ export default function Battle({ sound: globalSound }) {
     lives: 3
   })
 
-  // Lobby Browser & Requests States
   const [openRooms, setOpenRooms] = useState([])
   const [joinRequests, setJoinRequests] = useState([])
-  const [requestStatus, setRequestStatus] = useState({}) // { [roomId]: 'idle' | 'pending' | 'declined' }
+  const [requestStatus, setRequestStatus] = useState({})
 
-  // Countdown State
   const [countdown, setCountdown] = useState(3)
   const [copied, setCopied] = useState(false)
   const [winner, setWinner] = useState('')
@@ -135,7 +128,6 @@ export default function Battle({ sound: globalSound }) {
     }
   }, [currentInput, currentWordIdx, gameWords, resizeToggle])
 
-  // Web Audio keyclick
   const playClick = useCallback(() => {
     if (!sound) return
     try {
@@ -152,7 +144,6 @@ export default function Battle({ sound: globalSound }) {
     } catch {}
   }, [sound])
 
-  // Reset local typing arena variables
   const resetLocalTyping = useCallback((wordsList) => {
     setTypedWords([])
     setCurrentInput('')
@@ -189,14 +180,12 @@ export default function Battle({ sound: globalSound }) {
     if (timerRef.current) clearInterval(timerRef.current)
   }, [mode, timeLimit])
 
-  // Copy code helper
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Global lobby browser synchronization
   useEffect(() => {
     if (lobbyState !== 'lobby' && lobbyState !== 'waiting') return
 
@@ -213,7 +202,7 @@ export default function Battle({ sound: globalSound }) {
     lobbyChan.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         if (lobbyState === 'waiting' && isHost) {
-          // Host tracks the room in global lobby
+
           await lobbyChan.track({
             roomId,
             hostName: user?.username || 'Host',
@@ -231,11 +220,10 @@ export default function Battle({ sound: globalSound }) {
     }
   }, [lobbyState, isHost, roomId, tier, mode, wordCount, timeLimit, players.length, user])
 
-  // Focus redirection when pressing keys outside the typing area
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (lobbyState === 'arena' && !isFocused && status !== 'finished') {
-        // Prevent key defaults when focusing (like space scrolling)
+
         if (e.key === ' ' || e.key === 'Backspace') e.preventDefault()
         inputRef.current?.focus()
       }
@@ -244,7 +232,6 @@ export default function Battle({ sound: globalSound }) {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [lobbyState, isFocused, status])
 
-  // Supabase Realtime Room Handling
   const setupRealtimeChannel = useCallback((targetRoomId, hostFlag) => {
     const channel = supabase.channel(`room_${targetRoomId}`, {
       config: {
@@ -256,7 +243,6 @@ export default function Battle({ sound: globalSound }) {
 
     channelRef.current = channel
 
-    // Listen to presence events
     channel.on('presence', { event: 'sync' }, () => {
       const presenceState = channel.presenceState()
       const list = Object.entries(presenceState).map(([key, val]) => ({
@@ -267,7 +253,6 @@ export default function Battle({ sound: globalSound }) {
       setPlayers(list)
     })
 
-    // Listen to broadcasts
     channel
       .on('broadcast', { event: 'typing_progress' }, ({ payload }) => {
         setOpponentStats({
@@ -299,7 +284,6 @@ export default function Battle({ sound: globalSound }) {
         setLobbyState('countdown')
       })
 
-    // Host listens for join requests and config sync requests
     if (hostFlag) {
       channel
         .on('broadcast', { event: 'join_request' }, ({ payload }) => {
@@ -335,7 +319,6 @@ export default function Battle({ sound: globalSound }) {
           joinedAt: new Date().toISOString()
         })
 
-        // If host, immediately generate words, save to ref, and broadcast config
         if (hostFlag) {
           const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
           const initialWords = generateWords(tier, wordQty)
@@ -355,7 +338,7 @@ export default function Battle({ sound: globalSound }) {
             }
           })
         } else {
-          // Guest requests config to pull host's gameWords and configuration
+
           channel.send({
             type: 'broadcast',
             event: 'request_config',
@@ -366,7 +349,6 @@ export default function Battle({ sound: globalSound }) {
     })
   }, [user, tier, mode, wordCount, timeLimit, rushSpeed, resetLocalTyping])
 
-  // Leave room cleanups
   const leaveRoom = () => {
     if (channelRef.current) {
       channelRef.current.unsubscribe()
@@ -381,7 +363,6 @@ export default function Battle({ sound: globalSound }) {
     setJoinRequests([])
   }
 
-  // Create Room (4-digit code)
   const handleCreateRoom = () => {
     const code = Math.floor(1000 + Math.random() * 9000).toString()
     setRoomId(code)
@@ -390,7 +371,6 @@ export default function Battle({ sound: globalSound }) {
     setupRealtimeChannel(code, true)
   }
 
-  // Join Room via Form
   const handleJoinRoom = (e) => {
     e.preventDefault()
     if (!roomCodeInput.trim()) return
@@ -401,7 +381,6 @@ export default function Battle({ sound: globalSound }) {
     setupRealtimeChannel(code, false)
   }
 
-  // Accept Join Request (Host)
   const handleAcceptRequest = (req) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -415,7 +394,6 @@ export default function Battle({ sound: globalSound }) {
     setJoinRequests(prev => prev.filter(r => r.requesterId !== req.requesterId))
   }
 
-  // Decline Join Request (Host)
   const handleDeclineRequest = (req) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -429,7 +407,6 @@ export default function Battle({ sound: globalSound }) {
     setJoinRequests(prev => prev.filter(r => r.requesterId !== req.requesterId))
   }
 
-  // Request to Join Room (Lobby list click)
   const handleRequestToJoin = (targetRoom) => {
     const targetRoomId = targetRoom.roomId
     setRequestStatus(prev => ({ ...prev, [targetRoomId]: 'pending' }))
@@ -470,7 +447,6 @@ export default function Battle({ sound: globalSound }) {
     })
   }
 
-  // Start Battle Countdown
   const handleStartBattle = () => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -482,7 +458,6 @@ export default function Battle({ sound: globalSound }) {
     setLobbyState('countdown')
   }
 
-  // Countdown timer effect
   useEffect(() => {
     if (lobbyState !== 'countdown') return
     setCountdown(3)
@@ -502,14 +477,12 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(countInterval)
   }, [lobbyState, resetLocalTyping])
 
-  // Focus input when Arena starts
   useEffect(() => {
     if (lobbyState === 'arena') {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [lobbyState])
 
-  // Game timer loop
   useEffect(() => {
     if (status !== 'running') return
 
@@ -520,13 +493,11 @@ export default function Battle({ sound: globalSound }) {
 
       const minutes = elapsedSec / 60
 
-      // Calculate live WPM (prevent spikes at the very beginning)
       if (minutes > 0.01) {
         const currentWpm = Math.round((correctCharsRef.current / 5) / minutes)
         setWpm(currentWpm)
       }
 
-      // Time mode check
       if (mode === 'time') {
         const remaining = Math.max(0, timeLimit - elapsedSec)
         setTimeLeft(Math.ceil(remaining))
@@ -534,7 +505,7 @@ export default function Battle({ sound: globalSound }) {
         if (remaining <= 0) {
           clearInterval(timerRef.current)
           setStatus('finished')
-          // Broadcast final stats
+
           const finalWpm = Math.round((correctCharsRef.current / 5) / Math.max(elapsedSec / 60, 0.001))
           setWpm(finalWpm)
           if (channelRef.current) {
@@ -558,7 +529,6 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(timerRef.current)
   }, [status, mode, timeLimit, accuracy, currentWordIdx, user])
 
-  // AI Bot Opponent logic (high precision fluid rendering)
   useEffect(() => {
     if (lobbyState !== 'arena' || !isBotMode || status === 'finished') return
 
@@ -594,7 +564,6 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(botInterval)
   }, [lobbyState, isBotMode, botWpm, gameWords, status])
 
-  // Throttled character-by-character updates to opponent (decouples network block from keydown loop)
   const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false) => {
     const now = Date.now()
     const forceSend = isFinishedFlag || inputVal === '' || inputVal.length <= 1
@@ -626,7 +595,6 @@ export default function Battle({ sound: globalSound }) {
     }
   }
 
-  // Periodic flush effect for throttled progress updates
   useEffect(() => {
     if (lobbyState !== 'arena' || status === 'finished') return
 
@@ -658,7 +626,6 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(flushInterval)
   }, [lobbyState, status, accuracy, lives, mode])
 
-  // Handle typing input keydowns
   const handleKeyDown = (e) => {
     if (lobbyState !== 'arena' || status === 'finished') return
     playClick()
@@ -671,7 +638,6 @@ export default function Battle({ sound: globalSound }) {
     const { key } = e
     const currentWord = gameWords[currentWordIdx]
 
-    // Backspace
     if (key === 'Backspace') {
       e.preventDefault()
       if (currentInput.length > 0) {
@@ -682,7 +648,6 @@ export default function Battle({ sound: globalSound }) {
       return
     }
 
-    // Space: submit word
     if (key === ' ') {
       e.preventDefault()
       if (!currentInput.trim()) return
@@ -695,9 +660,8 @@ export default function Battle({ sound: globalSound }) {
       setCurrentWordIdx(nextIdx)
       setCurrentInput('')
 
-      // Calculate accuracy & correct chars
       if (isCorrect) {
-        correctCharsRef.current += currentWord.length + 1 // including space
+        correctCharsRef.current += currentWord.length + 1
         setCorrectChars(correctCharsRef.current)
       } else {
         setMistakesCount(prev => prev + 1)
@@ -710,7 +674,6 @@ export default function Battle({ sound: globalSound }) {
       const acc = Math.max(0, Math.round(((totalCharsRef.current - (mistakesCount + (isCorrect ? 0 : 1))) / totalCharsRef.current) * 100))
       setAccuracy(acc)
 
-      // Broadcast progress on word submission
       const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
       const currentWpm = elapsedSec > 0.6 ? Math.round((correctCharsRef.current / 5) / (elapsedSec / 60)) : 0
       const isFinished = (mode === 'words' && nextIdx >= gameWords.length)
@@ -730,7 +693,6 @@ export default function Battle({ sound: globalSound }) {
         })
       }
 
-      // Check if finished
       if (isFinished) {
         if (timerRef.current) clearInterval(timerRef.current)
         setStatus('finished')
@@ -738,7 +700,6 @@ export default function Battle({ sound: globalSound }) {
       return
     }
 
-    // Letter characters
     if (key.length === 1) {
       if (currentInput.length >= currentWord.length + 10) return
       const newVal = currentInput + key
@@ -746,7 +707,6 @@ export default function Battle({ sound: globalSound }) {
       totalKeysRef.current += 1
       sendTypingProgress(currentWordIdx, newVal)
 
-      // Auto-finish: if this is the LAST word and all chars match, auto-submit
       const isLastWord = currentWordIdx === gameWords.length - 1
       if (isLastWord && newVal === currentWord && mode === 'words') {
         const updatedTyped = [...typedWords, newVal]
@@ -788,7 +748,6 @@ export default function Battle({ sound: globalSound }) {
     }
   }
 
-  // Determine game winner when finished
   useEffect(() => {
     if (status === 'finished' || opponentStats.isFinished) {
       let gameWinner = ''
@@ -816,7 +775,6 @@ export default function Battle({ sound: globalSound }) {
     }
   }, [status, opponentStats.isFinished, opponentStats.wpm, wpm, mode, timeLeft, opponentStats.username])
 
-  // Rematch
   const handleRematch = () => {
     const nextWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
     setGameWords(nextWords)
@@ -835,14 +793,11 @@ export default function Battle({ sound: globalSound }) {
     setLobbyState('countdown')
   }
 
-  // --- RENDERING SCREENS ---
-
-  // 1. Lobby Setup Screen with Rooms Browser
   if (lobbyState === 'lobby') {
     return (
       <div className="battle-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', justifyContent: 'center', alignItems: 'flex-start' }}>
         
-        {/* Setup card */}
+        {}
         <div className="lobby-card" style={{ margin: '0' }}>
           <div className="lobby-title">
             <Swords size={22} className="accent-color-svg" />
@@ -943,7 +898,7 @@ export default function Battle({ sound: globalSound }) {
           </form>
         </div>
 
-        {/* Active Rooms Browser Card */}
+        {}
         <div className="lobby-browser">
           <div className="browser-title">
             <span>Active Rooms Browser</span>
@@ -987,7 +942,6 @@ export default function Battle({ sound: globalSound }) {
     )
   }
 
-  // 2. Waiting Room Lobby (Host displays requests here)
   if (lobbyState === 'waiting') {
     const oppJoined = players.length > 1
     
@@ -1008,7 +962,7 @@ export default function Battle({ sound: globalSound }) {
 
           {copied && <div style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '-16px', alignSelf: 'flex-end' }}>Code copied to clipboard!</div>}
 
-          {/* Join Requests (Host UI only) */}
+          {}
           {isHost && joinRequests.length > 0 && (
             <div style={{ border: '1px solid rgba(var(--accent-rgb), 0.2)', padding: '16px', borderRadius: 'var(--radius)', background: 'rgba(var(--accent-rgb), 0.03)' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-hi)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1131,7 +1085,6 @@ export default function Battle({ sound: globalSound }) {
     )
   }
 
-  // 3. Countdown Overlay
   if (lobbyState === 'countdown') {
     return (
       <div className="countdown-overlay">
@@ -1142,13 +1095,12 @@ export default function Battle({ sound: globalSound }) {
     )
   }
 
-  // 4. Split-Screen Arena
   if (lobbyState === 'arena') {
     return (
       <div className="battle-wrap">
         <div className="battle-arena">
           
-          {/* PLAYER PANEL (YOU) */}
+          {}
           <div className="arena-panel">
             <div className="arena-panel-header">
               <div className="arena-user">
@@ -1168,7 +1120,7 @@ export default function Battle({ sound: globalSound }) {
             </div>
 
             <div className="arena-typing-box" onClick={() => inputRef.current?.focus()}>
-              {/* Dim overlay when blurred */}
+              {}
               {status !== 'finished' && !isFocused && (
                 <div className="focus-error-overlay">
                   <div className="focus-error-text">
@@ -1177,7 +1129,7 @@ export default function Battle({ sound: globalSound }) {
                 </div>
               )}
 
-              {/* Target Text (Overwrite inline highlighting) */}
+              {}
               <div 
                 ref={wordsContainerRef}
                 style={{ 
@@ -1192,7 +1144,7 @@ export default function Battle({ sound: globalSound }) {
                   transition: 'opacity 0.25s ease'
                 }}
               >
-                {/* Single absolute smooth caret */}
+                {}
                 {status !== 'finished' && isFocused && (
                   <span
                     className="battle-smooth-caret"
@@ -1236,7 +1188,7 @@ export default function Battle({ sound: globalSound }) {
                           )
                         })}
                         
-                        {/* Render extra typed characters if any */}
+                        {}
                         {currentInput.length > word.length && (
                           currentInput.slice(word.length).split('').map((char, charIdx) => {
                             return (
@@ -1249,8 +1201,7 @@ export default function Battle({ sound: globalSound }) {
                       </span>
                     )
                   }
-                  
-                  // Untyped words
+
                   return (
                     <span key={idx} className="word" style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
                       {word}
@@ -1259,7 +1210,7 @@ export default function Battle({ sound: globalSound }) {
                 })}
               </div>
 
-              {/* Hidden text input */}
+              {}
               <input 
                 ref={inputRef}
                 type="text" 
@@ -1278,7 +1229,7 @@ export default function Battle({ sound: globalSound }) {
             </div>
           </div>
 
-          {/* OPPONENT PANEL */}
+          {}
           <div className="arena-panel">
             <div className="arena-panel-header">
               <div className="arena-user">
@@ -1339,7 +1290,6 @@ export default function Battle({ sound: globalSound }) {
     )
   }
 
-  // 5. Results Screen
   if (lobbyState === 'results') {
     const isWin = winner === 'You'
     const isDraw = winner === 'Draw'
@@ -1361,7 +1311,7 @@ export default function Battle({ sound: globalSound }) {
           </div>
 
           <div className="results-split">
-            {/* YOUR CARD */}
+            {}
             <div className={`res-split-card ${isWin ? 'winner' : ''}`}>
               {isWin && (
                 <div className="winner-crown">
@@ -1385,7 +1335,7 @@ export default function Battle({ sound: globalSound }) {
               </div>
             </div>
 
-            {/* OPPONENT CARD */}
+            {}
             <div className={`res-split-card ${(!isWin && !isDraw) ? 'winner' : ''}`}>
               {(!isWin && !isDraw) && (
                 <div className="winner-crown">

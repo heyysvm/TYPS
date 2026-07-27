@@ -21,7 +21,6 @@ export default function App() {
   const { user, logout, saveTest, getUserStats } = useAuth()
   const { theme, setTheme, themes } = useTheme()
 
-  
   const [tier, setTier]           = useState('basic')
   const [mode, setMode]           = useState('words')
   const [wordCount, setWordCount] = useState(10)
@@ -30,14 +29,12 @@ export default function App() {
   const [showCustom, setShowCustom] = useState(false)
   const [sound, setSound]         = useState(false)
 
-  
   const [page, setPage]           = useState('home') 
   const [showAuth, setShowAuth]   = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [resultSaved, setResultSaved]   = useState(false)
   const [restartKey, setRestartKey]     = useState(0)
 
-  
   const [bestWpm, setBestWpm]         = useState(0)
   const [previousWpm, setPreviousWpm] = useState(0)
 
@@ -63,7 +60,6 @@ export default function App() {
     charsCorrect, charsIncorrect, charsExtra, charsMissed
   } = engine
 
-  
   const audioCtxRef = useRef(null)
   const playClick = useCallback(() => {
     if (!sound) return
@@ -81,7 +77,6 @@ export default function App() {
     } catch {}
   }, [sound])
 
-  
   useEffect(() => {
     if (status === 'finished' && user) {
       try {
@@ -98,7 +93,6 @@ export default function App() {
     }
   }, [status, user, getUserStats])
 
-  
   const lastWpmRef = useRef(0)
   useEffect(() => {
     if (status === 'finished' && wpm > 0) {
@@ -107,7 +101,6 @@ export default function App() {
     }
   }, [status, wpm])
 
-  
   useEffect(() => {
     if (status === 'finished' && !resultSaved) {
       if (wpm > 0 && (charsCorrect || 0) >= 5) {
@@ -154,7 +147,6 @@ export default function App() {
     }
   }, [status, resultSaved, user, wpm, rawWpm, accuracy, elapsed, mode, tier, wordCount, timeLimit, saveTest, charsCorrect, charsIncorrect, charsExtra, charsMissed])
 
-  
   useEffect(() => {
     let tabDown = false
     const onKeyDown = (e) => {
@@ -168,7 +160,6 @@ export default function App() {
     return () => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp) }
   }, [handleRestart])
 
-  
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setShowUserMenu(false)

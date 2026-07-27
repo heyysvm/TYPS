@@ -89,7 +89,7 @@ export const stories = [
 ]
 
 export function generateWords(tier, count) {
-  // 1. Easy/Basic tier: Kept completely as is (simple random words)
+
   if (tier === 'basic') {
     const pool = wordSets.basic
     const result = []
@@ -99,22 +99,19 @@ export function generateWords(tier, count) {
     return result
   }
 
-  // 2. Medium/Intermd tier: Give intermediate words with a little bit of punctuation & capitalization
   if (tier === 'intermd') {
     const intermdWords = wordSets.intermd
     const basicWords = wordSets.basic
     const result = []
     for (let i = 0; i < count; i++) {
-      // 80% intermediate words, 20% basic words to keep the flow natural
+
       const pool = Math.random() < 0.8 ? intermdWords : basicWords
       let word = pool[Math.floor(Math.random() * pool.length)]
 
-      // 10% chance of starting with capital letter
       if (Math.random() < 0.1) {
         word = word.charAt(0).toUpperCase() + word.slice(1)
       }
 
-      // 20% chance of punctuation
       const p = Math.random()
       if (p < 0.08 && i < count - 1) {
         word += ','
@@ -130,29 +127,26 @@ export function generateWords(tier, count) {
     return result
   }
 
-  // 3. Hard tier: Stories/Paragraphs or Quote-like short tests
   if (tier === 'hard') {
-    // If the count is 15 words or less (e.g. 10 words count selected), generate a hard quote-like string with punctuation and numbers
+
     if (count <= 15) {
       const hardWords = wordSets.hard
       const result = []
       for (let i = 0; i < count; i++) {
         const randVal = Math.random()
         if (randVal < 0.15) {
-          // Add a random number
+
           let num = String(Math.floor(Math.random() * 1000))
           if (Math.random() < 0.3) num += '.' + Math.floor(Math.random() * 10)
           result.push(num)
         } else {
-          // Add a hard word
+
           let word = hardWords[Math.floor(Math.random() * hardWords.length)]
-          
-          // 25% chance of capitalization
+
           if (Math.random() < 0.25) {
             word = word.charAt(0).toUpperCase() + word.slice(1)
           }
 
-          // Punctuation
           const p = Math.random()
           if (p < 0.10 && i < count - 1) {
             word += ','
@@ -170,9 +164,9 @@ export function generateWords(tier, count) {
       }
       return result
     } else {
-      // 30 words, 60 words, or time limits: Give actual full story paragraphs
+
       let combined = []
-      // Shuffle our stories pool so they get a random one each time
+
       const shuffledStories = [...stories].sort(() => Math.random() - 0.5)
       
       for (const story of shuffledStories) {
@@ -180,7 +174,6 @@ export function generateWords(tier, count) {
         if (combined.length >= count) break
       }
 
-      // If requested word count is extremely high (e.g. 5+ min time limits), loop the stories to ensure they never run out
       while (combined.length < count) {
         const randStory = stories[Math.floor(Math.random() * stories.length)]
         combined.push(...randStory.split(/\s+/))
@@ -190,6 +183,5 @@ export function generateWords(tier, count) {
     }
   }
 
-  // Fallback
   return wordSets.basic.slice(0, count)
 }

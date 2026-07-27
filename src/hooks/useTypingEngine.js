@@ -31,7 +31,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
   const currentWordIdxRef = useRef(0)
   const typedCharsRef     = useRef([])
 
-  
   const charsCorrectRef   = useRef(0)
   const charsIncorrectRef = useRef(0)
   const charsExtraRef     = useRef(0)
@@ -93,7 +92,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
 
   useEffect(() => { initWords() }, [initWords])
 
-  
   useEffect(() => {
     if (status !== 'running') return
 
@@ -137,20 +135,17 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
     return () => clearInterval(timerRef.current)
   }, [status, mode, timeLimit])
 
-  
   const handleKeyDown = useCallback((e) => {
     const st  = statusRef.current
     if (st === 'finished') return
     const key = e.key
 
-    
     if (st === 'idle' && key.length === 1) {
       syncStatus('running')
       startTimeRef.current = Date.now()
     }
     if (statusRef.current !== 'running') return
 
-    
     if (key === 'Backspace' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
       currentInputRef.current = ''
@@ -162,7 +157,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
       return
     }
 
-    
     if (key === 'Backspace') {
       e.preventDefault()
       const ci  = currentInputRef.current
@@ -193,7 +187,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
       return
     }
 
-    
     if (key === ' ') {
       e.preventDefault()
       const ci  = currentInputRef.current
@@ -202,20 +195,15 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
 
       const currentWord = wordsRef.current[cwi]
 
-      
       countCharStats(currentWord, ci)
 
-      
-      
       if (ci === currentWord) {
         
         correctCharsRef.current += currentWord.length + 1
       }
 
-      
       totalKeysRef.current += ci.length + 1
 
-      
       totalCharsRef.current += ci.length + 1
       const acc = Math.round(
         (correctCharsRef.current / Math.max(totalCharsRef.current, 1)) * 100
@@ -224,7 +212,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
 
       const nextIdx = cwi + 1
 
-      
       if (mode === 'words' && nextIdx >= wordsRef.current.length) {
         clearInterval(timerRef.current)
         const elapsedSec = (Date.now() - startTimeRef.current) / 1000
@@ -240,7 +227,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
       currentWordIdxRef.current = nextIdx
       currentInputRef.current   = ''
 
-      // Infinite text stream for time mode (prevents running out of text at 200-300 WPM)
       if (mode === 'time' && nextIdx >= wordsRef.current.length - 15) {
         const moreWords = generateWords(tier, 100)
         wordsRef.current = [...wordsRef.current, ...moreWords]
@@ -254,7 +240,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
       return
     }
 
-    
     if (key.length === 1) {
       const ci          = currentInputRef.current
       const cwi         = currentWordIdxRef.current
@@ -271,7 +256,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
         const n = [...prev]; n[cwi] = newInput.split(''); return n
       })
 
-      
       if (mode === 'words' && cwi === wordsRef.current.length - 1 && newInput === currentWord) {
         
         countCharStats(currentWord, newInput)
@@ -292,7 +276,6 @@ export function useTypingEngine({ mode, tier, wordCount, timeLimit, key: _key })
     }
   }, [mode])
 
-  
   useEffect(() => {
     if (status === 'idle') {
       const t = setTimeout(() => {

@@ -65,46 +65,39 @@ function generateMixedText(keys, count = 120) {
 }
 
 export default function Learn({ sound: globalSound }) {
-  // --- Theme Access Hooks ---
+
   const { theme: activeTheme, setTheme: setActiveTheme, themes: allThemes, baseTheme, toggleBaseTheme, isGlass, toggleGlass } = useTheme();
 
-  // --- Page Mode State ---
-  const [practiceTab, setPracticeTab] = useState("lessons"); // lessons | manual
-  
-  // --- Lesson Run States ---
-  const [activeLessonId, setActiveLessonId] = useState(null); // null means dashboard list
-  const [isOnboarding, setIsOnboarding] = useState(true); // onboarding screen before lesson
-  const [currentStepIdx, setCurrentStepIdx] = useState(0); // active step index inside lesson
-  const [demoState, setDemoState] = useState("typing"); // typing active
+  const [practiceTab, setPracticeTab] = useState("lessons");
+
+  const [activeLessonId, setActiveLessonId] = useState(null);
+  const [isOnboarding, setIsOnboarding] = useState(true);
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [demoState, setDemoState] = useState("typing");
   const [typedText, setTypedText] = useState("");
   const [startTime, setStartTime] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const [mistakesCount, setMistakesCount] = useState(0);
-  const [mistakesMap, setMistakesMap] = useState({}); // { char: count }
-  const [typingStatus, setTypingStatus] = useState("idle"); // idle | typing | finished
-  
-  // --- Final Step Mixed Time Drill state ---
-  const [mixedDuration, setMixedDuration] = useState(60); // seconds
+  const [mistakesMap, setMistakesMap] = useState({});
+  const [typingStatus, setTypingStatus] = useState("idle");
+
+  const [mixedDuration, setMixedDuration] = useState(60);
   const [timeLeft, setTimeLeft] = useState(60);
   const [activeStepText, setActiveStepText] = useState("");
   const [activeStepDesc, setActiveStepDesc] = useState("");
-  
-  // --- Live Metrics ---
+
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
-  
-  // --- Interactive key state & slide effect ---
+
   const [keyFlash, setKeyFlash] = useState({});
   const [shakeActive, setShakeActive] = useState(false);
   const [slideInActive, setSlideInActive] = useState(true);
 
-  // --- Settings ---
   const [sound, setSound] = useState(globalSound);
   const [showFingerGuide, setShowFingerGuide] = useState(true);
   const [textSize, setTextSize] = useState("normal");
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  // --- LocalStorage Stats ---
   const [practiceStats, setPracticeStats] = useState({
     completedLessons: [],
     bestWpm: {},
@@ -118,7 +111,6 @@ export default function Learn({ sound: globalSound }) {
   const inputRef = useRef(null);
   const audioCtxRef = useRef(null);
 
-  // Sound click builder
   const playClick = useCallback(() => {
     if (!sound) return;
     try {
@@ -137,7 +129,6 @@ export default function Learn({ sound: globalSound }) {
     } catch {}
   }, [sound]);
 
-  // Load progress
   useEffect(() => {
     const saved = localStorage.getItem('typs_practice_stats');
     if (saved) {
@@ -162,12 +153,10 @@ export default function Learn({ sound: globalSound }) {
     localStorage.setItem('typs_practice_stats', JSON.stringify(updated));
   };
 
-  // Resolve current active lesson & step text
   const lesson = lessons.find(l => l.id === activeLessonId) || lessons[0];
   const step = lesson.steps && lesson.steps[currentStepIdx] ? lesson.steps[currentStepIdx] : { text: "", desc: "" };
   const targetText = activeStepText || step.text || "";
 
-  // WPM/Acc Calculations
   const calculateWpm = useCallback((correctLen, timeSec) => {
     if (timeSec <= 0) return 0;
     const minutes = timeSec / 60;
@@ -182,7 +171,6 @@ export default function Learn({ sound: globalSound }) {
 
   const isFinalStep = lesson.steps && currentStepIdx === lesson.steps.length - 1;
 
-  // Timer Tick
   useEffect(() => {
     if (typingStatus === "typing") {
       timerRef.current = setInterval(() => {
@@ -209,7 +197,6 @@ export default function Learn({ sound: globalSound }) {
     return () => clearInterval(timerRef.current);
   }, [typingStatus, startTime, typedText, mistakesCount, calculateWpm, calculateAccuracy, isFinalStep, mixedDuration]);
 
-  // Reset/Initialize step typing
   const resetStepPractice = useCallback(() => {
     setTypedText("");
     setStartTime(null);
@@ -219,8 +206,7 @@ export default function Learn({ sound: globalSound }) {
     setKeyFlash({});
     setTypingStatus("idle");
     setSlideInActive(false);
-    
-    // Trigger entry slide animation
+
     setTimeout(() => setSlideInActive(true), 50);
 
     if (inputRef.current) {
@@ -238,21 +224,18 @@ export default function Learn({ sound: globalSound }) {
     }
   }, [isFinalStep, lesson.keys, step.text, step.desc, mixedDuration]);
 
-  // Reset when lesson or step index changes
   useEffect(() => {
     if (activeLessonId !== null && !isOnboarding) {
       resetStepPractice();
     }
   }, [activeLessonId, currentStepIdx, isOnboarding, resetStepPractice]);
 
-  // Focus utility
   const focusInput = () => {
     if (inputRef.current && demoState === "typing") {
       inputRef.current.focus();
     }
   };
 
-  // Keep input focused when typing state active
   useEffect(() => {
     if (activeLessonId !== null && !isOnboarding && demoState === "typing") {
       focusInput();
@@ -262,7 +245,6 @@ export default function Learn({ sound: globalSound }) {
     }
   }, [activeLessonId, isOnboarding, demoState]);
 
-  // Key Event Handler
   const handleKeyDown = (e) => {
     if (typingStatus === "finished" || demoState !== "typing") return;
 
@@ -295,7 +277,6 @@ export default function Learn({ sound: globalSound }) {
       const newTyped = typedText + key;
       setTypedText(newTyped);
 
-      // Flash key green
       const expectedKeyIds = getRequiredKeys(expectedChar);
       const flash = {};
       expectedKeyIds.forEach(id => { flash[id] = 'correct'; });
@@ -308,25 +289,22 @@ export default function Learn({ sound: globalSound }) {
         });
       }, 150);
 
-      // Check if we need to append more text for infinite stream
       if (isFinalStep && newTyped.length >= targetText.length - 20) {
         const additional = generateMixedText(lesson.keys, 50);
         setActiveStepText(prev => prev + " " + additional);
       }
 
-      // Check if step is complete (only for non-mixed steps)
       if (!isFinalStep && newTyped.length === targetText.length) {
         handleStepCompletion();
       }
     } else {
-      // Mistake!
+
       setMistakesCount(prev => prev + 1);
       setMistakesMap(prev => ({
         ...prev,
         [expectedChar]: (prev[expectedChar] || 0) + 1
       }));
 
-      // Shake animation & red key flash
       setShakeActive(true);
       setTimeout(() => setShakeActive(false), 250);
 
@@ -344,7 +322,6 @@ export default function Learn({ sound: globalSound }) {
     }
   };
 
-  // Step Completion logic
   const handleStepCompletion = () => {
     if (currentStepIdx < lesson.steps.length - 1) {
       setCurrentStepIdx(prev => prev + 1);
@@ -354,7 +331,6 @@ export default function Learn({ sound: globalSound }) {
     }
   };
 
-  // Lesson Completion logic
   const handleLessonCompletion = (lengthOverride, elapsedOverride) => {
     const finalElapsed = elapsedOverride !== undefined ? elapsedOverride : (Date.now() - startTime) / 1000;
     const finalLength = lengthOverride !== undefined ? lengthOverride : targetText.length;
@@ -408,7 +384,6 @@ export default function Learn({ sound: globalSound }) {
     return 1;
   };
 
-  // Keyboard mapping details
   const currentExpectedChar = targetText[typedText.length] || null;
   const currentKeyIds = currentExpectedChar ? getRequiredKeys(currentExpectedChar) : [];
   const currentKeyInfo = currentExpectedChar ? charToKeyMap[currentExpectedChar] : null;
@@ -419,7 +394,6 @@ export default function Learn({ sound: globalSound }) {
   const nextKeyInfo = nextExpectedChar ? charToKeyMap[nextExpectedChar] : null;
   const nextFinger = nextKeyInfo ? nextKeyInfo.finger : null;
 
-  // Custom mock weak keys lesson practice
   const handlePracticeWeakKeys = () => {
     const sortedWeak = Object.entries(practiceStats.weakKeys)
       .filter(([char]) => char !== ' ' && char !== '\n')
@@ -471,7 +445,6 @@ export default function Learn({ sound: globalSound }) {
     { id: 'wpm_100', title: 'Grandmaster', desc: 'Achieve 100 WPM', icon: '🏆' }
   ];
 
-  // Helper: check if a key is a focus key for the current lesson
   const isFocusKey = (keyId) => {
     if (activeLessonId === null) return true;
     if (lesson.id === -1) return true;
@@ -495,7 +468,7 @@ export default function Learn({ sound: globalSound }) {
   return (
     <div className={`practice-container text-size-${textSize} ${reducedMotion ? 'reduced-motion' : ''}`}>
       
-      {/* HEADER CONTROLS */}
+      {}
       <div className="practice-header-dashboard" style={{ gridColumn: 'span 3', display: 'flex', gap: '12px', marginBottom: '8px' }}>
         <button
           className={`qc-toggle-btn ${practiceTab === 'lessons' && activeLessonId === null ? 'active' : ''}`}
@@ -519,9 +492,7 @@ export default function Learn({ sound: globalSound }) {
         </button>
       </div>
 
-      {/* ==========================================
-          TAB 1: LEARN TOUCH TYPING GUIDE MANUAL
-          ========================================== */}
+      {}
       {practiceTab === "manual" && (
         <div className="manual-learning-wrap" style={{ gridColumn: 'span 3' }}>
           <h2 className="page-header" style={{ display: 'flex', gap: '8px', fontSize: '1.5rem', marginBottom: '24px' }}>
@@ -602,9 +573,7 @@ export default function Learn({ sound: globalSound }) {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 2: PROGRESSIVE LESSONS (DASHBOARD LIST)
-          ========================================== */}
+      {}
       {practiceTab === "lessons" && activeLessonId === null && (
         <div className="lessons-dashboard-wrap" style={{ gridColumn: 'span 3' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -619,7 +588,7 @@ export default function Learn({ sound: globalSound }) {
           <div className="lessons-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
             {lessons.filter(l => l.id !== -1).map((l, index) => {
               const isCompleted = practiceStats.completedLessons.includes(l.id);
-              const isUnlocked = true; // All lessons unlocked
+              const isUnlocked = true;
               const bestWpm = practiceStats.bestWpm[l.id] || 0;
               const bestAcc = practiceStats.bestAcc[l.id] || 0;
 
@@ -655,9 +624,7 @@ export default function Learn({ sound: globalSound }) {
         </div>
       )}
 
-      {/* ==========================================
-          ONBOARDING INTRO CARD (BEFORE LESSON RUNS)
-          ========================================== */}
+      {}
       {activeLessonId !== null && isOnboarding && (
         <div className="onboarding-overlay-container" style={{ gridColumn: 'span 3', display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
           <div className="res-block" style={{ width: '100%', maxWidth: '640px', padding: '32px', animation: 'fadeUp 0.28s ease' }}>
@@ -703,12 +670,10 @@ export default function Learn({ sound: globalSound }) {
         </div>
       )}
 
-      {/* ==========================================
-          ACTIVE LESSON PRACTICE RUNNER
-          ========================================== */}
+      {}
       {activeLessonId !== null && !isOnboarding && (
         <>
-          {/* LEFT PANEL: Steps list */}
+          {}
           <div className="practice-left-panel">
             <div className="practice-section-header">
               <BookOpen size={16} />
@@ -756,7 +721,7 @@ export default function Learn({ sound: globalSound }) {
             </div>
           </div>
 
-          {/* CENTER PANEL: Typing Card, Keyboard, Hands */}
+          {}
           <div className="practice-center-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             
             {currentExpectedChar && (
@@ -765,7 +730,7 @@ export default function Learn({ sound: globalSound }) {
               </div>
             )}
 
-            {/* Glassmorphic typing exercise card */}
+            {}
             <div className={`practice-typing-wrap ${shakeActive ? 'shake' : ''} ${slideInActive ? 'fadeUp' : ''}`} style={{
               width: '100%',
               background: 'rgba(255, 255, 255, 0.03)',
@@ -839,7 +804,7 @@ export default function Learn({ sound: globalSound }) {
               />
             </div>
 
-            {/* Virtual Keyboard */}
+            {}
             <div className="virtual-keyboard" style={{ width: '100%' }}>
               {keyboardRows.map((row, rIdx) => (
                 <div key={rIdx} className="keyboard-row">
@@ -872,7 +837,7 @@ export default function Learn({ sound: globalSound }) {
               ))}
             </div>
 
-            {/* SVGs hands guide */}
+            {}
             {showFingerGuide && (
               <div className="hands-visualizer-container" style={{ width: '100%' }}>
                 <svg viewBox="0 0 400 130" className="hands-svg">
@@ -909,7 +874,7 @@ export default function Learn({ sound: globalSound }) {
             )}
           </div>
 
-          {/* RIGHT PANEL: Live instructions & details stats */}
+          {}
           <div className="practice-right-panel">
             <div className="practice-section-header">
               <Award size={16} />
@@ -950,7 +915,7 @@ export default function Learn({ sound: globalSound }) {
               )}
             </div>
 
-            {/* Quick visual settings */}
+            {}
             <div className="practice-section-header" style={{ marginTop: '20px' }}>
               <Eye size={16} />
               <h3>Settings</h3>
@@ -976,7 +941,7 @@ export default function Learn({ sound: globalSound }) {
                 </button>
               </div>
 
-              {/* Mode Toggle inside Learn */}
+              {}
               <div className="qc-row">
                 <span>Mode</span>
                 <button className="qc-toggle-btn" onClick={toggleBaseTheme}>
@@ -984,7 +949,7 @@ export default function Learn({ sound: globalSound }) {
                 </button>
               </div>
 
-              {/* Glass UI Toggle inside Learn */}
+              {}
               <div className="qc-row">
                 <span>Glass UI</span>
                 <button className={`qc-toggle-btn ${isGlass ? 'active' : ''}`} onClick={toggleGlass}>
@@ -992,7 +957,7 @@ export default function Learn({ sound: globalSound }) {
                 </button>
               </div>
 
-              {/* Accent Color Dot Toggles */}
+              {}
               <div className="qc-row" style={{ marginTop: '4px' }}>
                 <span>Theme Accent</span>
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1027,9 +992,7 @@ export default function Learn({ sound: globalSound }) {
         </>
       )}
 
-      {/* ==========================================
-          LESSON COMPLETION OVERLAY SCREEN MODAL
-          ========================================== */}
+      {}
       {typingStatus === "finished" && (
         <div className="modal-overlay">
           <div className="modal-box completion-modal" style={{ background: 'var(--bg2)' }}>
