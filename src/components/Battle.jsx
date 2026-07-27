@@ -225,7 +225,7 @@ export default function Battle({ sound: globalSound }) {
       if (lobbyState === 'arena' && !isFocused && status !== 'finished') {
 
         if (e.key === ' ' || e.key === 'Backspace') e.preventDefault()
-        inputRef.current?.focus()
+        inputRef.current?.focus({ preventScroll: true })
       }
     }
     window.addEventListener('keydown', handleGlobalKeyDown)
@@ -500,7 +500,7 @@ export default function Battle({ sound: globalSound }) {
 
   useEffect(() => {
     if (lobbyState === 'arena') {
-      setTimeout(() => inputRef.current?.focus(), 100)
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100)
     }
   }, [lobbyState])
 
@@ -1140,7 +1140,7 @@ export default function Battle({ sound: globalSound }) {
               </div>
             </div>
 
-            <div className="arena-typing-box" onClick={() => inputRef.current?.focus()}>
+            <div className="arena-typing-box" onClick={() => inputRef.current?.focus({ preventScroll: true })}>
               {}
               {status !== 'finished' && !isFocused && (
                 <div className="focus-error-overlay">
@@ -1236,7 +1236,7 @@ export default function Battle({ sound: globalSound }) {
                 ref={inputRef}
                 type="text" 
                 className="hidden-typing-input"
-                style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}
                 value={currentInput}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setIsFocused(true)}
