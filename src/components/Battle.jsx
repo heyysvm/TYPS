@@ -232,6 +232,32 @@ export default function Battle({ sound: globalSound }) {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [lobbyState, isFocused, status])
 
+  useEffect(() => {
+    if (!isHost || lobbyState !== 'waiting') return
+
+    const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
+    const updatedWords = generateWords(tier, wordQty)
+    setGameWords(updatedWords)
+    gameWordsRef.current = updatedWords
+
+    if (channelRef.current) {
+      const myName = user?.username || `Guest_${Math.floor(Math.random() * 1000)}`
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'room_config',
+        payload: {
+          tier,
+          mode,
+          wordCount,
+          timeLimit,
+          rushSpeed,
+          words: updatedWords,
+          hostName: myName
+        }
+      })
+    }
+  }, [isHost, lobbyState, tier, mode, wordCount, timeLimit, rushSpeed, user])
+
   const setupRealtimeChannel = useCallback((targetRoomId, hostFlag) => {
     const channel = supabase.channel(`room_${targetRoomId}`, {
       config: {
@@ -321,33 +347,13 @@ export default function Battle({ sound: globalSound }) {
 
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        const myName = user?.username || `Guest_${Math.floor(Math.random() * 1000)}`
         await channel.track({
           id: user?.id || `guest_${Date.now()}`,
           isHost: hostFlag,
           joinedAt: new Date().toISOString()
         })
 
-        if (hostFlag) {
-          const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
-          const initialWords = generateWords(tier, wordQty)
-          setGameWords(initialWords)
-          gameWordsRef.current = initialWords
-          channel.send({
-            type: 'broadcast',
-            event: 'room_config',
-            payload: {
-              tier,
-              mode,
-              wordCount,
-              timeLimit,
-              rushSpeed,
-              words: initialWords,
-              hostName: myName
-            }
-          })
-        } else {
-
+        if (!hostFlag) {
           channel.send({
             type: 'broadcast',
             event: 'request_config',
@@ -356,7 +362,7 @@ export default function Battle({ sound: globalSound }) {
         }
       }
     })
-  }, [user, tier, mode, wordCount, timeLimit, rushSpeed, resetLocalTyping])
+  }, [user, resetLocalTyping])
 
   const leaveRoom = () => {
     if (channelRef.current) {
@@ -377,6 +383,12 @@ export default function Battle({ sound: globalSound }) {
     setRoomId(code)
     setIsHost(true)
     setLobbyState('waiting')
+
+    const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
+    const initialWords = generateWords(tier, wordQty)
+    setGameWords(initialWords)
+    gameWordsRef.current = initialWords
+
     setupRealtimeChannel(code, true)
   }
 
