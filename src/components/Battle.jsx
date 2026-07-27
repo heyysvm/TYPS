@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
-import { Swords, Trophy, Play, Copy, User, Volume2, VolumeX, ArrowLeft, Crown, Zap, Target, ShieldAlert } from 'lucide-react'
+import { Swords, Trophy, Play, Copy, User, Volume2, VolumeX, ArrowLeft, Crown, Zap, Target, ShieldAlert, Heart } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { generateWords } from '../data/words'
@@ -22,6 +22,7 @@ export default function Battle({ sound: globalSound }) {
 
   const [rushSpeed, setRushSpeed] = useState(60)
   const [lives, setLives] = useState(3)
+  const [score, setScore] = useState(0)
   const [rushWordTimeLimit, setRushWordTimeLimit] = useState(2.0)
   const [rushWordTimeLeft, setRushWordTimeLeft] = useState(2.0)
   const [rushFlashRed, setRushFlashRed] = useState(false)
@@ -157,6 +158,10 @@ export default function Battle({ sound: globalSound }) {
     setCorrectChars(0)
     setTypedCharsCount(0)
     setMistakesCount(0)
+    setLives(3)
+    setScore(0)
+    setRushWordTimeLimit(2.0)
+    setRushWordTimeLeft(2.0)
 
     startTimeRef.current = null
     correctCharsRef.current = 0
@@ -170,7 +175,8 @@ export default function Battle({ sound: globalSound }) {
       currentWordIdx: 0,
       currentInputVal: '',
       isFinished: false,
-      lives: 3
+      lives: 3,
+      score: 0
     }))
     
     if (wordsList) {
@@ -531,7 +537,7 @@ export default function Battle({ sound: globalSound }) {
         setWpm(currentWpm)
       }
 
-      if (mode === 'time') {
+      if (mode === 'time' || mode === 'rush') {
         const remaining = Math.max(0, timeLimit - elapsedSec)
         setTimeLeft(Math.ceil(remaining))
 
@@ -551,7 +557,9 @@ export default function Battle({ sound: globalSound }) {
                 accuracy,
                 currentWordIdx,
                 currentInputVal: '',
-                isFinished: true
+                isFinished: true,
+                lives: mode === 'rush' ? lives : 3,
+                score
               }
             })
           }
@@ -560,7 +568,7 @@ export default function Battle({ sound: globalSound }) {
     }, 100)
 
     return () => clearInterval(timerRef.current)
-  }, [status, mode, timeLimit, accuracy, currentWordIdx, user])
+  }, [status, mode, timeLimit, accuracy, currentWordIdx, user, lives, score])
 
   useEffect(() => {
     if (lobbyState !== 'arena' || !isBotMode || status === 'finished') return
@@ -597,7 +605,106 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(botInterval)
   }, [lobbyState, isBotMode, botWpm, gameWords, status])
 
-  const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false) => {
+  const playSuccessClick = useCallback(() => {
+    if (!sound) return
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
+      const ctx = audioCtxRef.current
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = 1000
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.02, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
+      osc.start(); osc.stop(ctx.currentTime + 0.08)
+    } catch {}
+  }, [sound])
+
+  const playErrorClick = useCallback(() => {
+    if (!sound) return
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext()
+      const ctx = audioCtxRef.current
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.frequency.value = 150
+      osc.type = 'sawtooth'
+      gain.gain.setValueAtTime(0.04, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2)
+      osc.start(); osc.stop(ctx.currentTime + 0.2)
+    } catch {}
+  }, [sound])
+
+  const calculateWordTime = useCallback((word) => {
+    const charsPerSec = (rushSpeed * 5) / 60
+    const rawTime = word.length / charsPerSec
+    return Math.max(1.2, Number((rawTime + 1.0).toFixed(2)))
+  }, [rushSpeed])
+
+  const handleLifeLoss = useCallback(() => {
+    playErrorClick()
+    setRushFlashRed(true)
+    setTimeout(() => setRushFlashRed(false), 200)
+
+    setLives(prev => {
+      const nextLives = prev - 1
+      const nextIdx = currentWordIdx + 1
+
+      if (nextLives <= 0) {
+        setStatus('finished')
+        if (timerRef.current) clearInterval(timerRef.current)
+
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'typing_progress',
+            payload: {
+              username: user?.username || 'You',
+              wpm: 0,
+              accuracy,
+              currentWordIdx: nextIdx,
+              currentInputVal: '',
+              isFinished: true,
+              lives: 0,
+              score
+            }
+          })
+        }
+      } else {
+        setCurrentWordIdx(nextIdx)
+        setCurrentInput('')
+
+        const nextWord = gameWords[nextIdx] || 'rush'
+        const tLimit = calculateWordTime(nextWord)
+        setRushWordTimeLimit(tLimit)
+        setRushWordTimeLeft(tLimit)
+
+        sendTypingProgress(nextIdx, '')
+      }
+      return nextLives
+    })
+  }, [currentWordIdx, gameWords, calculateWordTime, sendTypingProgress, user, accuracy, score, playErrorClick])
+
+  useEffect(() => {
+    if (lobbyState !== 'arena' || status !== 'running' || mode !== 'rush') return
+
+    const rushTimer = setInterval(() => {
+      setRushWordTimeLeft(prev => {
+        const next = Number((prev - 0.05).toFixed(2))
+        if (next <= 0) {
+          handleLifeLoss()
+          return 0
+        }
+        return next
+      })
+    }, 50)
+
+    return () => clearInterval(rushTimer)
+  }, [lobbyState, status, mode, handleLifeLoss])
+
+  const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false, scoreVal = score) => {
     const now = Date.now()
     const forceSend = isFinishedFlag || inputVal === '' || inputVal.length <= 1
 
@@ -617,14 +724,15 @@ export default function Battle({ sound: globalSound }) {
             currentWordIdx: wordIdx,
             currentInputVal: inputVal,
             isFinished: isFinishedFlag,
-            lives: mode === 'rush' ? lives : 3
+            lives: mode === 'rush' ? lives : 3,
+            score: scoreVal
           }
         })
       }
       lastSendTimeRef.current = now
-      pendingProgressRef.current = null
+      pendingProgressRef.current = { wordIdx, inputVal, scoreVal }
     } else {
-      pendingProgressRef.current = { wordIdx, inputVal }
+      pendingProgressRef.current = { wordIdx, inputVal, scoreVal }
     }
   }
 
@@ -633,7 +741,7 @@ export default function Battle({ sound: globalSound }) {
 
     const flushInterval = setInterval(() => {
       if (pendingProgressRef.current && channelRef.current) {
-        const { wordIdx, inputVal } = pendingProgressRef.current
+        const { wordIdx, inputVal, scoreVal } = pendingProgressRef.current
         const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
         const minutes = elapsedSec / 60
         const currentWpm = minutes > 0.01 ? Math.round((correctCharsRef.current / 5) / minutes) : 0
@@ -648,7 +756,8 @@ export default function Battle({ sound: globalSound }) {
             currentWordIdx: wordIdx,
             currentInputVal: inputVal,
             isFinished: false,
-            lives: mode === 'rush' ? lives : 3
+            lives: mode === 'rush' ? lives : 3,
+            score: scoreVal
           }
         })
         lastSendTimeRef.current = Date.now()
@@ -683,6 +792,7 @@ export default function Battle({ sound: globalSound }) {
 
     if (key === ' ') {
       e.preventDefault()
+      if (mode === 'rush') return
       if (!currentInput.trim()) return
 
       const isCorrect = currentInput === currentWord
@@ -738,45 +848,71 @@ export default function Battle({ sound: globalSound }) {
       const newVal = currentInput + key
       setCurrentInput(newVal)
       totalKeysRef.current += 1
-      sendTypingProgress(currentWordIdx, newVal)
 
-      const isLastWord = currentWordIdx === gameWords.length - 1
-      if (isLastWord && newVal === currentWord && mode === 'words') {
-        const updatedTyped = [...typedWords, newVal]
-        setTypedWords(updatedTyped)
-        const nextIdx = currentWordIdx + 1
-        setCurrentWordIdx(nextIdx)
-        setCurrentInput('')
+      if (mode === 'rush') {
+        if (newVal === currentWord) {
+          playSuccessClick()
+          setRushFlashGreen(true)
+          setTimeout(() => setRushFlashGreen(false), 150)
+          
+          const nextIdx = currentWordIdx + 1
+          setCurrentWordIdx(nextIdx)
+          setCurrentInput('')
+          
+          const nextWord = gameWords[nextIdx] || 'rush'
+          const tLimit = calculateWordTime(nextWord)
+          setRushWordTimeLimit(tLimit)
+          setRushWordTimeLeft(tLimit)
 
-        correctCharsRef.current += currentWord.length
-        setCorrectChars(correctCharsRef.current)
-        totalCharsRef.current += newVal.length
-        setTypedCharsCount(totalCharsRef.current)
-
-        const acc = Math.max(0, Math.round(((totalCharsRef.current - mistakesCount) / totalCharsRef.current) * 100))
-        setAccuracy(acc)
-
-        const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
-        const finalWpm = elapsedSec > 0.6 ? Math.round((correctCharsRef.current / 5) / (elapsedSec / 60)) : 0
-        setWpm(finalWpm)
-
-        if (channelRef.current) {
-          channelRef.current.send({
-            type: 'broadcast',
-            event: 'typing_progress',
-            payload: {
-              username: user?.username || 'You',
-              wpm: finalWpm,
-              accuracy: acc,
-              currentWordIdx: nextIdx,
-              currentInputVal: '',
-              isFinished: true
-            }
+          setScore(prev => {
+            const nextScore = prev + 1
+            sendTypingProgress(nextIdx, '', false, nextScore)
+            return nextScore
           })
+        } else {
+          sendTypingProgress(currentWordIdx, newVal, false)
         }
+      } else {
+        sendTypingProgress(currentWordIdx, newVal)
 
-        if (timerRef.current) clearInterval(timerRef.current)
-        setStatus('finished')
+        const isLastWord = currentWordIdx === gameWords.length - 1
+        if (isLastWord && newVal === currentWord && mode === 'words') {
+          const updatedTyped = [...typedWords, newVal]
+          setTypedWords(updatedTyped)
+          const nextIdx = currentWordIdx + 1
+          setCurrentWordIdx(nextIdx)
+          setCurrentInput('')
+
+          correctCharsRef.current += currentWord.length
+          setCorrectChars(correctCharsRef.current)
+          totalCharsRef.current += newVal.length
+          setTypedCharsCount(totalCharsRef.current)
+
+          const acc = Math.max(0, Math.round(((totalCharsRef.current - mistakesCount) / totalCharsRef.current) * 100))
+          setAccuracy(acc)
+
+          const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+          const finalWpm = elapsedSec > 0.6 ? Math.round((correctCharsRef.current / 5) / (elapsedSec / 60)) : 0
+          setWpm(finalWpm)
+
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: 'broadcast',
+              event: 'typing_progress',
+              payload: {
+                username: user?.username || 'You',
+                wpm: finalWpm,
+                accuracy: acc,
+                currentWordIdx: nextIdx,
+                currentInputVal: '',
+                isFinished: true
+              }
+            })
+          }
+
+          if (timerRef.current) clearInterval(timerRef.current)
+          setStatus('finished')
+        }
       }
     }
   }
@@ -784,7 +920,17 @@ export default function Battle({ sound: globalSound }) {
   useEffect(() => {
     if (status === 'finished' || opponentStats.isFinished) {
       let gameWinner = ''
-      if (mode === 'words') {
+      if (mode === 'rush') {
+        const myScore = score
+        const oppScore = opponentStats.score !== undefined ? opponentStats.score : opponentStats.currentWordIdx
+        if (myScore > oppScore) {
+          gameWinner = 'You'
+        } else if (myScore < oppScore) {
+          gameWinner = opponentStats.username || 'Opponent'
+        } else {
+          gameWinner = 'Draw'
+        }
+      } else if (mode === 'words') {
         const myFinished = status === 'finished'
         const oppFinished = opponentStats.isFinished
         
@@ -806,7 +952,7 @@ export default function Battle({ sound: globalSound }) {
       }, 1000)
       return () => clearTimeout(t)
     }
-  }, [status, opponentStats.isFinished, opponentStats.wpm, wpm, mode, timeLeft, opponentStats.username])
+  }, [status, opponentStats.isFinished, opponentStats.wpm, wpm, mode, score, opponentStats.score, opponentStats.currentWordIdx, opponentStats.username])
 
   const handleRematch = () => {
     const nextWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
@@ -830,7 +976,6 @@ export default function Battle({ sound: globalSound }) {
     return (
       <div className="battle-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: '48px', justifyContent: 'center', alignItems: 'flex-start' }}>
         
-        {}
         <div className="lobby-card" style={{ margin: '0' }}>
           <div className="lobby-title">
             <Swords size={22} className="accent-color-svg" />
@@ -931,7 +1076,6 @@ export default function Battle({ sound: globalSound }) {
           </form>
         </div>
 
-        {}
         <div className="lobby-browser">
           <div className="browser-title">
             <span>Active Rooms Browser</span>
@@ -995,7 +1139,6 @@ export default function Battle({ sound: globalSound }) {
 
           {copied && <div style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '-16px', alignSelf: 'flex-end' }}>Code copied to clipboard!</div>}
 
-          {}
           {isHost && joinRequests.length > 0 && (
             <div style={{ border: '1px solid rgba(var(--accent-rgb), 0.2)', padding: '16px', borderRadius: 'var(--radius)', background: 'rgba(var(--accent-rgb), 0.03)' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-hi)', display: 'block', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1130,10 +1273,9 @@ export default function Battle({ sound: globalSound }) {
 
   if (lobbyState === 'arena') {
     return (
-      <div className="battle-wrap">
+      <div className={`battle-wrap ${rushFlashRed ? 'flash-red-active' : ''} ${rushFlashGreen ? 'flash-green-active' : ''}`}>
         <div className="battle-arena">
           
-          {}
           <div className="arena-panel">
             <div className="arena-panel-header">
               <div className="arena-user">
@@ -1143,17 +1285,35 @@ export default function Battle({ sound: globalSound }) {
                 <span className="arena-user-name">{user?.username || 'You'}</span>
               </div>
               <div className="arena-wpm" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                {mode === 'time' && (
-                  <span style={{ fontSize: '1rem', color: timeLeft <= 5 ? 'var(--wrong)' : 'var(--text-muted)', fontWeight: 700 }}>
-                    {timeLeft}s left
-                  </span>
+                {mode === 'rush' ? (
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Heart 
+                          key={i} 
+                          size={18} 
+                          fill={i < lives ? 'var(--wrong)' : 'none'} 
+                          stroke={i < lives ? 'var(--wrong)' : 'var(--text-muted)'} 
+                          style={{ transition: 'all 0.3s ease', opacity: i < lives ? 1 : 0.3 }}
+                        />
+                      ))}
+                    </div>
+                    <span>{score} <span>words</span></span>
+                  </div>
+                ) : (
+                  <>
+                    {mode === 'time' && (
+                      <span style={{ fontSize: '1rem', color: timeLeft <= 5 ? 'var(--wrong)' : 'var(--text-muted)', fontWeight: 700 }}>
+                        {timeLeft}s left
+                      </span>
+                    )}
+                    <span>{wpm} <span>WPM</span></span>
+                  </>
                 )}
-                <span>{wpm} <span>WPM</span></span>
               </div>
             </div>
 
-            <div className="arena-typing-box" onClick={() => inputRef.current?.focus({ preventScroll: true })}>
-              {}
+            <div className="arena-typing-box" onClick={() => inputRef.current?.focus({ preventScroll: true })} style={{ display: 'flex', flexDirection: 'column' }}>
               {status !== 'finished' && !isFocused && (
                 <div className="focus-error-overlay">
                   <div className="focus-error-text">
@@ -1162,88 +1322,132 @@ export default function Battle({ sound: globalSound }) {
                 </div>
               )}
 
-              {}
-              <div 
-                ref={wordsContainerRef}
-                style={{ 
-                  position: 'relative',
-                  fontSize: '1.625rem', 
-                  lineHeight: '2.625rem', 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: '12px', 
-                  pointerEvents: 'none',
-                  opacity: isFocused ? 1 : 0.25,
-                  transition: 'opacity 0.25s ease'
-                }}
-              >
-                {}
-                {status !== 'finished' && isFocused && (
-                  <span
-                    className="battle-smooth-caret"
-                    style={{
-                      position: 'absolute',
-                      left: caretPos.left,
-                      top: caretPos.top + 9,
-                      width: '2px',
-                      height: '1.5rem',
-                      transition: 'left 0.05s cubic-bezier(0.25, 0, 0, 1), top 0s',
-                    }}
-                  />
-                )}
+              {mode === 'rush' ? (
+                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', opacity: isFocused ? 1 : 0.25, transition: 'opacity 0.25s ease', flex: 1 }}>
+                  <div style={{ width: '100%', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '20px' }}>
+                    <div 
+                      style={{ 
+                        width: `${Math.max(0, (rushWordTimeLeft / rushWordTimeLimit) * 100)}%`, 
+                        height: '100%', 
+                        background: (rushWordTimeLeft / rushWordTimeLimit) * 100 <= 30 ? 'var(--wrong)' : 'var(--accent)', 
+                        transition: 'width 0.05s linear' 
+                      }} 
+                    />
+                  </div>
 
-                {gameWords.map((word, idx) => {
-                  const isCurrent = idx === currentWordIdx
-                  const isCompleted = idx < currentWordIdx
-                  
-                  if (isCompleted) {
-                    const isCorrect = typedWords[idx] === word
-                    return (
-                      <span key={idx} className="word" style={{ color: isCorrect ? 'var(--accent)' : 'var(--wrong)' }}>
-                        {word}
-                      </span>
-                    )
-                  }
-                  
-                  if (isCurrent) {
-                    return (
-                      <span key={idx} className="word curr" style={{ display: 'inline-block' }}>
-                        {word.split('').map((char, charIdx) => {
-                          let charColor = 'var(--text-dim)'
-                          if (charIdx < currentInput.length) {
-                            charColor = currentInput[charIdx] === char ? 'var(--accent)' : 'var(--wrong)'
-                          }
-                          
-                          return (
-                            <span key={charIdx} className="ch" style={{ color: charColor, transition: 'color 0.08s ease' }}>
-                              {char}
-                            </span>
-                          )
-                        })}
+                  <div style={{ textAlign: 'center', minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', margin: 'auto 0', flex: 1 }}>
+                    <div style={{ fontSize: '2.5rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', marginBottom: '24px', color: 'var(--text-hi)', display: 'flex', gap: '2px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                      {(gameWords[currentWordIdx] || '').split('').map((char, charIdx) => {
+                        let charColor = 'var(--text-dim)'
+                        let opacity = 0.35
                         
-                        {}
-                        {currentInput.length > word.length && (
-                          currentInput.slice(word.length).split('').map((char, charIdx) => {
+                        if (charIdx < currentInput.length) {
+                          const isCorrect = currentInput[charIdx] === char
+                          charColor = isCorrect ? 'var(--accent)' : 'var(--wrong)'
+                          opacity = 1
+                        }
+                        
+                        return (
+                          <span key={charIdx} style={{ color: charColor, opacity }}>
+                            {char}
+                          </span>
+                        )
+                      })}
+                      
+                      {currentInput.length > (gameWords[currentWordIdx] || '').length && (
+                        currentInput.slice((gameWords[currentWordIdx] || '').length).split('').map((char, charIdx) => (
+                          <span key={`extra-${charIdx}`} style={{ color: 'var(--wrong)', opacity: 1 }}>
+                            {char}
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    <div style={{ height: '32px', fontSize: '1.25rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                      {currentInput || <span style={{ opacity: 0.15, fontStyle: 'italic' }}>type word...</span>}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  ref={wordsContainerRef}
+                  style={{ 
+                    position: 'relative',
+                    fontSize: '1.625rem', 
+                    lineHeight: '2.625rem', 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '12px', 
+                    pointerEvents: 'none',
+                    opacity: isFocused ? 1 : 0.25,
+                    transition: 'opacity 0.25s ease'
+                  }}
+                >
+                  {status !== 'finished' && isFocused && (
+                    <span
+                      className="battle-smooth-caret"
+                      style={{
+                        position: 'absolute',
+                        left: caretPos.left,
+                        top: caretPos.top + 9,
+                        width: '2px',
+                        height: '1.5rem',
+                        transition: 'left 0.05s cubic-bezier(0.25, 0, 0, 1), top 0s',
+                      }}
+                    />
+                  )}
+
+                  {gameWords.map((word, idx) => {
+                    const isCurrent = idx === currentWordIdx
+                    const isCompleted = idx < currentWordIdx
+                    
+                    if (isCompleted) {
+                      const isCorrect = typedWords[idx] === word
+                      return (
+                        <span key={idx} className="word" style={{ color: isCorrect ? 'var(--accent)' : 'var(--wrong)' }}>
+                          {word}
+                        </span>
+                      )
+                    }
+                    
+                    if (isCurrent) {
+                      return (
+                        <span key={idx} className="word curr" style={{ display: 'inline-block' }}>
+                          {word.split('').map((char, charIdx) => {
+                            let charColor = 'var(--text-dim)'
+                            if (charIdx < currentInput.length) {
+                              charColor = currentInput[charIdx] === char ? 'var(--accent)' : 'var(--wrong)'
+                            }
+                            
                             return (
-                              <span key={`extra-${charIdx}`} className="ch extra" style={{ color: 'var(--wrong)' }}>
+                              <span key={charIdx} className="ch" style={{ color: charColor, transition: 'color 0.08s ease' }}>
                                 {char}
                               </span>
                             )
-                          })
-                        )}
+                          })}
+                          
+                          {currentInput.length > word.length && (
+                            currentInput.slice(word.length).split('').map((char, charIdx) => {
+                              return (
+                                <span key={`extra-${charIdx}`} className="ch extra" style={{ color: 'var(--wrong)' }}>
+                                  {char}
+                                </span>
+                              )
+                            })
+                          )}
+                        </span>
+                      )
+                    }
+
+                    return (
+                      <span key={idx} className="word" style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
+                        {word}
                       </span>
                     )
-                  }
+                  })}
+                </div>
+              )}
 
-                  return (
-                    <span key={idx} className="word" style={{ color: 'var(--text-dim)', opacity: 0.4 }}>
-                      {word}
-                    </span>
-                  )
-                })}
-              </div>
-
-              {}
               <input 
                 ref={inputRef}
                 type="text" 
@@ -1262,7 +1466,6 @@ export default function Battle({ sound: globalSound }) {
             </div>
           </div>
 
-          {}
           <div className="arena-panel">
             <div className="arena-panel-header">
               <div className="arena-user">
@@ -1272,43 +1475,87 @@ export default function Battle({ sound: globalSound }) {
                 <span className="arena-user-name">{opponentStats.username || 'Opponent'}</span>
               </div>
               <div className="arena-wpm">
-                {opponentStats.wpm} <span>WPM</span>
+                {mode === 'rush' ? (
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Heart 
+                          key={i} 
+                          size={18} 
+                          fill={i < (opponentStats.lives !== undefined ? opponentStats.lives : 3) ? 'var(--wrong)' : 'none'} 
+                          stroke={i < (opponentStats.lives !== undefined ? opponentStats.lives : 3) ? 'var(--wrong)' : 'var(--text-muted)'} 
+                          style={{ transition: 'all 0.3s ease', opacity: i < (opponentStats.lives !== undefined ? opponentStats.lives : 3) ? 1 : 0.3 }}
+                        />
+                      ))}
+                    </div>
+                    <span>{opponentStats.score !== undefined ? opponentStats.score : opponentStats.currentWordIdx} <span>words</span></span>
+                  </div>
+                ) : (
+                  <span>{opponentStats.wpm} <span>WPM</span></span>
+                )}
               </div>
             </div>
 
-            <div className="arena-typing-box opponent-box">
-              <div style={{ fontSize: '1.625rem', lineHeight: '2.625rem', display: 'flex', flexWrap: 'wrap', gap: '12px', opacity: 0.6 }}>
-                {gameWords.map((word, idx) => {
-                  const isCurrent = idx === Math.floor(opponentStats.currentWordIdx)
-                  const isTyped = idx < Math.floor(opponentStats.currentWordIdx)
-                  
-                  return (
-                    <span 
-                      key={idx} 
-                      className={`opp-word ${isCurrent ? 'current' : ''} ${isTyped ? 'typed' : ''}`}
-                    >
-                      {isCurrent ? (
-                        <span>
-                          <span style={{ color: 'var(--accent)' }}>
-                            {word.slice(0, (opponentStats.currentInputVal || '').length)}
-                          </span>
-                          <span className="opp-caret" style={{ 
-                            display: 'inline-block',
-                            width: '2px', 
-                            height: '1.1em', 
-                            background: 'var(--accent)', 
-                            verticalAlign: 'middle',
-                            margin: '0 1px'
-                          }} />
-                          <span style={{ opacity: 0.35 }}>
-                            {word.slice((opponentStats.currentInputVal || '').length)}
-                          </span>
+            <div className="arena-typing-box opponent-box" style={{ display: 'flex', flexDirection: 'column' }}>
+              {mode === 'rush' ? (
+                <div style={{ textAlign: 'center', minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', flex: 1 }}>
+                  <div style={{ fontSize: '2.25rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em', marginBottom: '24px', color: 'var(--text-hi)', display: 'flex', gap: '2px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {(gameWords[Math.floor(opponentStats.currentWordIdx)] || '').split('').map((char, charIdx) => {
+                      let charColor = 'var(--text-dim)'
+                      let opacity = 0.35
+                      
+                      if (charIdx < (opponentStats.currentInputVal || '').length) {
+                        const isCorrect = opponentStats.currentInputVal[charIdx] === char
+                        charColor = isCorrect ? 'var(--accent)' : 'var(--wrong)'
+                        opacity = 1
+                      }
+                      
+                      return (
+                        <span key={charIdx} style={{ color: charColor, opacity }}>
+                          {char}
                         </span>
-                      ) : word}
-                    </span>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
+
+                  <div style={{ height: '32px', fontSize: '1.125rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    {opponentStats.currentInputVal || <span style={{ opacity: 0.15, fontStyle: 'italic' }}>typing...</span>}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '1.625rem', lineHeight: '2.625rem', display: 'flex', flexWrap: 'wrap', gap: '12px', opacity: 0.6 }}>
+                  {gameWords.map((word, idx) => {
+                    const isCurrent = idx === Math.floor(opponentStats.currentWordIdx)
+                    const isTyped = idx < Math.floor(opponentStats.currentWordIdx)
+                    
+                    return (
+                      <span 
+                        key={idx} 
+                        className={`opp-word ${isCurrent ? 'current' : ''} ${isTyped ? 'typed' : ''}`}
+                      >
+                        {isCurrent ? (
+                          <span>
+                            <span style={{ color: 'var(--accent)' }}>
+                              {word.slice(0, (opponentStats.currentInputVal || '').length)}
+                            </span>
+                            <span className="opp-caret" style={{ 
+                              display: 'inline-block',
+                              width: '2px', 
+                              height: '1.1em', 
+                              background: 'var(--accent)', 
+                              verticalAlign: 'middle',
+                              margin: '0 1px'
+                            }} />
+                            <span style={{ opacity: 0.35 }}>
+                              {word.slice((opponentStats.currentInputVal || '').length)}
+                            </span>
+                          </span>
+                        ) : word}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
