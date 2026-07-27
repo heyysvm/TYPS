@@ -20,6 +20,14 @@ export default function Battle({ sound: globalSound }) {
   const [timeLimit, setTimeLimit] = useState(30)
   const [isBotMode, setIsBotMode] = useState(false)
   const [botWpm, setBotWpm] = useState(60)
+  
+  // Word Rush Config
+  const [rushSpeed, setRushSpeed] = useState(60) // WPM
+  const [lives, setLives] = useState(3)
+  const [rushWordTimeLimit, setRushWordTimeLimit] = useState(2.0)
+  const [rushWordTimeLeft, setRushWordTimeLeft] = useState(2.0)
+  const [rushFlashRed, setRushFlashRed] = useState(false)
+  const [rushFlashGreen, setRushFlashGreen] = useState(false)
 
   // Typing Arena States
   const [gameWords, setGameWords] = useState([])
@@ -46,7 +54,8 @@ export default function Battle({ sound: globalSound }) {
     accuracy: 100,
     currentWordIdx: 0,
     currentInputVal: '',
-    isFinished: false
+    isFinished: false,
+    lives: 3
   })
 
   // Lobby Browser & Requests States
@@ -82,7 +91,8 @@ export default function Battle({ sound: globalSound }) {
 
   useLayoutEffect(() => {
     if (!wordsContainerRef.current) return
-    const wordEl = wordsContainerRef.current.querySelectorAll('.word')[currentWordIdx]
+    const activeIdx = mode === 'rush' ? 0 : currentWordIdx
+    const wordEl = wordsContainerRef.current.querySelectorAll('.word')[activeIdx]
     if (!wordEl) return
 
     const charEls = wordEl.querySelectorAll('.ch')
@@ -258,7 +268,8 @@ export default function Battle({ sound: globalSound }) {
           accuracy: payload.accuracy,
           currentWordIdx: payload.currentWordIdx,
           currentInputVal: payload.currentInputVal || '',
-          isFinished: payload.isFinished
+          isFinished: payload.isFinished,
+          lives: payload.lives !== undefined ? payload.lives : 3
         })
       })
       .on('broadcast', { event: 'room_config' }, ({ payload }) => {
@@ -267,6 +278,7 @@ export default function Battle({ sound: globalSound }) {
           setMode(payload.mode)
           setWordCount(payload.wordCount)
           setTimeLimit(payload.timeLimit)
+          setRushSpeed(payload.rushSpeed || 60)
           setGameWords(payload.words)
           setOpponentStats(prev => ({ ...prev, username: payload.hostName }))
         }
@@ -300,7 +312,8 @@ export default function Battle({ sound: globalSound }) {
 
         // If host, immediately broadcast config
         if (hostFlag) {
-          const initialWords = generateWords(tier, mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
+          const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
+          const initialWords = generateWords(tier, wordQty)
           setGameWords(initialWords)
           channel.send({
             type: 'broadcast',
@@ -310,6 +323,7 @@ export default function Battle({ sound: globalSound }) {
               mode,
               wordCount,
               timeLimit,
+              rushSpeed,
               words: initialWords,
               hostName: myName
             }
@@ -317,7 +331,7 @@ export default function Battle({ sound: globalSound }) {
         }
       }
     })
-  }, [user, tier, mode, wordCount, timeLimit, resetLocalTyping])
+  }, [user, tier, mode, wordCount, timeLimit, rushSpeed, resetLocalTyping])
 
   // Leave room cleanups
   const leaveRoom = () => {
@@ -775,31 +789,61 @@ export default function Battle({ sound: globalSound }) {
               <select className="form-select" value={mode} onChange={(e) => setMode(e.target.value)}>
                 <option value="words">Words</option>
                 <option value="time">Time</option>
+                <option value="rush">Word Rush</option>
               </select>
             </div>
 
-            <div className="form-row">
-              <label>{mode === 'words' ? 'Word Count' : 'Time Limit'}</label>
-              <select 
-                className="form-select" 
-                value={mode === 'words' ? wordCount : timeLimit} 
-                onChange={(e) => mode === 'words' ? setWordCount(Number(e.target.value)) : setTimeLimit(Number(e.target.value))}
-              >
-                {mode === 'words' ? (
-                  <>
-                    <option value="10">10 words</option>
-                    <option value="30">30 words</option>
-                    <option value="60">60 words</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="10">10 seconds</option>
-                    <option value="30">30 seconds</option>
-                    <option value="60">60 seconds</option>
-                  </>
-                )}
-              </select>
-            </div>
+            {mode === 'rush' ? (
+              <>
+                <div className="form-row">
+                  <label>Rush Speed (WPM)</label>
+                  <select 
+                    className="form-select" 
+                    value={rushSpeed} 
+                    onChange={(e) => setRushSpeed(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 16 }, (_, i) => 50 + i * 10).map(wpm => (
+                      <option key={wpm} value={wpm}>{wpm} WPM</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>Round Time</label>
+                  <select 
+                    className="form-select" 
+                    value={timeLimit} 
+                    onChange={(e) => setTimeLimit(Number(e.target.value))}
+                  >
+                    <option value={60}>1 Minute</option>
+                    <option value={120}>2 Minutes</option>
+                    <option value={180}>3 Minutes</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div className="form-row">
+                <label>{mode === 'words' ? 'Word Count' : 'Time Limit'}</label>
+                <select 
+                  className="form-select" 
+                  value={mode === 'words' ? wordCount : timeLimit} 
+                  onChange={(e) => mode === 'words' ? setWordCount(Number(e.target.value)) : setTimeLimit(Number(e.target.value))}
+                >
+                  {mode === 'words' ? (
+                    <>
+                      <option value="10">10 words</option>
+                      <option value="30">30 words</option>
+                      <option value="60">60 words</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="10">10 seconds</option>
+                      <option value="30">30 seconds</option>
+                      <option value="60">60 seconds</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            )}
           </div>
 
           <button className="lobby-btn primary" onClick={handleCreateRoom}>

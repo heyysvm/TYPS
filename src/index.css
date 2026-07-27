@@ -2674,5 +2674,13 @@ html.light-mode body.glass-ui-active {
   50% { opacity: 0.35; }
 }
 
+.flash-red-active {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.flash-green-active {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+
 
 
