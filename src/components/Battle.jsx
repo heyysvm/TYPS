@@ -74,6 +74,10 @@ export default function Battle({ sound: globalSound }) {
   const audioCtxRef = useRef(null)
   const myUserId = useRef(null)
 
+  const gameWordsRef = useRef([])
+  const lastSendTimeRef = useRef(0)
+  const pendingProgressRef = useRef(null)
+
   const startTimeRef = useRef(null)
   const correctCharsRef = useRef(0)
   const totalCharsRef = useRef(0)
@@ -174,10 +178,14 @@ export default function Battle({ sound: globalSound }) {
       accuracy: 100,
       currentWordIdx: 0,
       currentInputVal: '',
-      isFinished: false
+      isFinished: false,
+      lives: 3
     }))
     
-    if (wordsList) setGameWords(wordsList)
+    if (wordsList) {
+      setGameWords(wordsList)
+      gameWordsRef.current = wordsList
+    }
     if (timerRef.current) clearInterval(timerRef.current)
   }, [mode, timeLimit])
 
@@ -291,14 +299,31 @@ export default function Battle({ sound: globalSound }) {
         setLobbyState('countdown')
       })
 
-    // Host listens for join requests
+    // Host listens for join requests and config sync requests
     if (hostFlag) {
-      channel.on('broadcast', { event: 'join_request' }, ({ payload }) => {
-        setJoinRequests(prev => {
-          if (prev.some(r => r.requesterId === payload.requesterId)) return prev
-          return [...prev, payload]
+      channel
+        .on('broadcast', { event: 'join_request' }, ({ payload }) => {
+          setJoinRequests(prev => {
+            if (prev.some(r => r.requesterId === payload.requesterId)) return prev
+            return [...prev, payload]
+          })
         })
-      })
+        .on('broadcast', { event: 'request_config' }, () => {
+          const myName = user?.username || `Guest_${Math.floor(Math.random() * 1000)}`
+          channel.send({
+            type: 'broadcast',
+            event: 'room_config',
+            payload: {
+              tier,
+              mode,
+              wordCount,
+              timeLimit,
+              rushSpeed,
+              words: gameWordsRef.current,
+              hostName: myName
+            }
+          })
+        })
     }
 
     channel.subscribe(async (status) => {
@@ -310,11 +335,12 @@ export default function Battle({ sound: globalSound }) {
           joinedAt: new Date().toISOString()
         })
 
-        // If host, immediately broadcast config
+        // If host, immediately generate words, save to ref, and broadcast config
         if (hostFlag) {
           const wordQty = mode === 'rush' ? 300 : (mode === 'words' ? wordCount : Math.max(timeLimit * 6, 300))
           const initialWords = generateWords(tier, wordQty)
           setGameWords(initialWords)
+          gameWordsRef.current = initialWords
           channel.send({
             type: 'broadcast',
             event: 'room_config',
@@ -327,6 +353,13 @@ export default function Battle({ sound: globalSound }) {
               words: initialWords,
               hostName: myName
             }
+          })
+        } else {
+          // Guest requests config to pull host's gameWords and configuration
+          channel.send({
+            type: 'broadcast',
+            event: 'request_config',
+            payload: {}
           })
         }
       }
@@ -561,27 +594,69 @@ export default function Battle({ sound: globalSound }) {
     return () => clearInterval(botInterval)
   }, [lobbyState, isBotMode, botWpm, gameWords, status])
 
-  // Helper to send character-by-character updates to opponent
+  // Throttled character-by-character updates to opponent (decouples network block from keydown loop)
   const sendTypingProgress = (wordIdx, inputVal, isFinishedFlag = false) => {
-    if (channelRef.current) {
-      const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
-      const minutes = elapsedSec / 60
-      const currentWpm = minutes > 0.01 ? Math.round((correctCharsRef.current / 5) / minutes) : 0
-      
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'typing_progress',
-        payload: {
-          username: user?.username || 'You',
-          wpm: currentWpm,
-          accuracy,
-          currentWordIdx: wordIdx,
-          currentInputVal: inputVal,
-          isFinished: isFinishedFlag
-        }
-      })
+    const now = Date.now()
+    const forceSend = isFinishedFlag || inputVal === '' || inputVal.length <= 1
+
+    if (forceSend || now - lastSendTimeRef.current > 60) {
+      if (channelRef.current) {
+        const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+        const minutes = elapsedSec / 60
+        const currentWpm = minutes > 0.01 ? Math.round((correctCharsRef.current / 5) / minutes) : 0
+        
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'typing_progress',
+          payload: {
+            username: user?.username || 'You',
+            wpm: currentWpm,
+            accuracy,
+            currentWordIdx: wordIdx,
+            currentInputVal: inputVal,
+            isFinished: isFinishedFlag,
+            lives: mode === 'rush' ? lives : 3
+          }
+        })
+      }
+      lastSendTimeRef.current = now
+      pendingProgressRef.current = null
+    } else {
+      pendingProgressRef.current = { wordIdx, inputVal }
     }
   }
+
+  // Periodic flush effect for throttled progress updates
+  useEffect(() => {
+    if (lobbyState !== 'arena' || status === 'finished') return
+
+    const flushInterval = setInterval(() => {
+      if (pendingProgressRef.current && channelRef.current) {
+        const { wordIdx, inputVal } = pendingProgressRef.current
+        const elapsedSec = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : 0.001
+        const minutes = elapsedSec / 60
+        const currentWpm = minutes > 0.01 ? Math.round((correctCharsRef.current / 5) / minutes) : 0
+
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'typing_progress',
+          payload: {
+            username: user?.username || 'You',
+            wpm: currentWpm,
+            accuracy,
+            currentWordIdx: wordIdx,
+            currentInputVal: inputVal,
+            isFinished: false,
+            lives: mode === 'rush' ? lives : 3
+          }
+        })
+        lastSendTimeRef.current = Date.now()
+        pendingProgressRef.current = null
+      }
+    }, 60)
+
+    return () => clearInterval(flushInterval)
+  }, [lobbyState, status, accuracy, lives, mode])
 
   // Handle typing input keydowns
   const handleKeyDown = (e) => {
